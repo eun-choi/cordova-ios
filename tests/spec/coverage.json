@@ -2,8 +2,7 @@
   "spec_dir": "tests/spec",
   "spec_files": [
       "unit/**/*[sS]pec.js",
-      "component/**/*[sS]pec.js",
-      "create.spec.js"
+      "component/**/*[sS]pec.js"
   ],
   "stopSpecOnExpectationFailure": false,
   "random": false

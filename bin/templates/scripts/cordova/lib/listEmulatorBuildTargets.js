@@ -17,7 +17,8 @@
        under the License.
 */
 
-const { superspawn: { spawn } } = require('cordova-common');
+var Q = require('q');
+var exec = require('child_process').exec;
 
 /**
  * Returns a list of available simulator build targets of the form
@@ -31,8 +32,10 @@ const { superspawn: { spawn } } = require('cordova-common');
  *
  */
 function listEmulatorBuildTargets () {
-    return spawn('xcrun', ['simctl', 'list', '--json'])
-        .then(output => JSON.parse(output))
+    return Q.nfcall(exec, 'xcrun simctl list --json')
+        .then(function (stdio) {
+            return JSON.parse(stdio[0]);
+        })
         .then(function (simInfo) {
             var devices = simInfo.devices;
             var deviceTypes = simInfo.devicetypes;

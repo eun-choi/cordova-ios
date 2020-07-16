@@ -26,7 +26,7 @@
  *  This workflow would not have the `package.json` file.
  */
 // Coho updates this line
-const VERSION = '6.2.0-dev';
+const VERSION = '6.0.0-dev';
 
 const fs = require('fs-extra');
 const path = require('path');
@@ -37,6 +37,7 @@ const CordovaError = require('cordova-common').CordovaError;
 const CordovaLogger = require('cordova-common').CordovaLogger;
 const events = require('cordova-common').events;
 const PluginManager = require('cordova-common').PluginManager;
+const Q = require('q');
 const util = require('util');
 const xcode = require('xcode');
 const ConfigParser = require('cordova-common').ConfigParser;
@@ -278,8 +279,9 @@ Api.prototype.addPlugin = function (plugin, installOptions) {
                 return this.addPodSpecs(plugin, podSpecs, frameworkPods, installOptions);
             }
         })
-        // CB-11022 Return truthy value to prevent running prepare after
-        .then(() => true);
+        // CB-11022 return non-falsy value to indicate
+        // that there is no need to run prepare after
+        .thenResolve(true);
 };
 
 /**
@@ -326,8 +328,9 @@ Api.prototype.removePlugin = function (plugin, uninstallOptions) {
                 return this.removePodSpecs(plugin, podSpecs, frameworkPods, uninstallOptions);
             }
         })
-        // CB-11022 Return truthy value to prevent running prepare after
-        .then(() => true);
+        // CB-11022 return non-falsy value to indicate
+        // that there is no need to run prepare after
+        .thenResolve(true);
 };
 
 /**
@@ -446,7 +449,7 @@ Api.prototype.addPodSpecs = function (plugin, podSpecs, frameworkPods, installOp
             events.emit('verbose', 'Podfile unchanged, skipping `pod install`');
         }
     }
-    return Promise.resolve();
+    return Q.when();
 };
 
 /**
@@ -564,7 +567,7 @@ Api.prototype.removePodSpecs = function (plugin, podSpecs, frameworkPods, uninst
             events.emit('verbose', 'Podfile unchanged, skipping `pod install`');
         }
     }
-    return Promise.resolve();
+    return Q.when();
 };
 
 /**
@@ -602,7 +605,7 @@ Api.prototype.setSwiftVersionForCocoaPodsLibraries = function (podsjsonFile) {
                         .map(buildConfiguration => buildConfiguration.value)
                         .forEach(buildId => {
                             __dirty = true;
-                            podConfigs[buildId].buildSettings.SWIFT_VERSION = swiftVersion;
+                            podConfigs[buildId].buildSettings['SWIFT_VERSION'] = swiftVersion;
                         });
                 }
             });

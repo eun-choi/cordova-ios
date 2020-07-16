@@ -38,6 +38,7 @@ const projectFile = require('../../../bin/templates/scripts/cordova/lib/projectF
 const BridgingHeader_mod = require('../../../bin/templates/scripts/cordova/lib/BridgingHeader.js');
 const Podfile_mod = require('../../../bin/templates/scripts/cordova/lib/Podfile');
 const PodsJson_mod = require('../../../bin/templates/scripts/cordova/lib/PodsJson');
+const Q = require('q');
 const FIXTURES = path.join(__dirname, 'fixtures');
 const iosProjectFixture = path.join(FIXTURES, 'ios-config-xml');
 
@@ -83,7 +84,7 @@ describe('Platform Api', () => {
         if (process.platform === 'darwin') {
             describe('run', () => {
                 beforeEach(() => {
-                    spyOn(check_reqs, 'run').and.returnValue(Promise.resolve());
+                    spyOn(check_reqs, 'run').and.returnValue(Q.resolve());
                 });
                 it('should call into lib/run module', () => {
                     spyOn(run_mod, 'run');
@@ -102,7 +103,7 @@ describe('Platform Api', () => {
             };
             beforeEach(() => {
                 spyOn(PluginManager, 'get').and.returnValue({
-                    addPlugin: function () { return Promise.resolve(); }
+                    addPlugin: function () { return Q(); }
                 });
                 spyOn(BridgingHeader_mod, 'BridgingHeader');
                 spyOn(Podfile_mod, 'Podfile');
@@ -359,7 +360,7 @@ describe('Platform Api', () => {
             };
             beforeEach(() => {
                 spyOn(PluginManager, 'get').and.returnValue({
-                    removePlugin: function () { return Promise.resolve(); }
+                    removePlugin: function () { return Q(); }
                 });
                 spyOn(Podfile_mod, 'Podfile');
                 spyOn(PodsJson_mod, 'PodsJson');
@@ -516,9 +517,9 @@ describe('Platform Api', () => {
                         });
                 });
                 it('on a last library, it should remove a json from libraries', () => {
-                    const json1 = Object.assign({}, my_pod_json.libraries.AFNetworking, { count: 1 });
-                    const json2 = Object.assign({}, my_pod_json.libraries.Eureka, { count: 1 });
-                    const json3 = Object.assign({}, my_pod_json.libraries.HogeLib, { count: 1 });
+                    const json1 = Object.assign({}, my_pod_json.libraries['AFNetworking'], { count: 1 });
+                    const json2 = Object.assign({}, my_pod_json.libraries['Eureka'], { count: 1 });
+                    const json3 = Object.assign({}, my_pod_json.libraries['HogeLib'], { count: 1 });
                     podsjson_mock.getLibrary.and.callFake(name => {
                         if (name === json1.name) {
                             return json1;
@@ -549,9 +550,9 @@ describe('Platform Api', () => {
                         });
                 });
                 it('should decrement count in libraries and does not remove if count > 1', () => {
-                    const json1 = Object.assign({}, my_pod_json.libraries.AFNetworking, { count: 2 });
-                    const json2 = Object.assign({}, my_pod_json.libraries.Eureka, { count: 1 });
-                    const json3 = Object.assign({}, my_pod_json.libraries.HogeLib, { count: 1 });
+                    const json1 = Object.assign({}, my_pod_json.libraries['AFNetworking'], { count: 2 });
+                    const json2 = Object.assign({}, my_pod_json.libraries['Eureka'], { count: 1 });
+                    const json3 = Object.assign({}, my_pod_json.libraries['HogeLib'], { count: 1 });
                     podsjson_mock.getLibrary.and.callFake(name => {
                         if (name === json1.name) {
                             return json1;

@@ -44,7 +44,6 @@
 @property (nonatomic, weak) id <WKScriptMessageHandler> weakScriptMessageHandler;
 @property (nonatomic, strong) CDVURLSchemeHandler * schemeHandler;
 @property (nonatomic, readwrite) NSString *CDV_ASSETS_URL;
-@property (nonatomic, readwrite) Boolean cdvIsFileScheme;
 
 @end
 
@@ -135,16 +134,6 @@
     }
     configuration.applicationNameForUserAgent = userAgent;
 
-    if (@available(iOS 13.0, *)) {
-        NSString *contentMode = [settings cordovaSettingForKey:@"PreferredContentMode"];
-        if ([contentMode isEqual: @"mobile"]) {
-            configuration.defaultWebpagePreferences.preferredContentMode = WKContentModeMobile;
-        } else if ([contentMode isEqual: @"desktop"]) {
-            configuration.defaultWebpagePreferences.preferredContentMode = WKContentModeDesktop;
-        }
-        
-    }
-
     return configuration;
 }
 
@@ -154,53 +143,35 @@
     CDVViewController* vc = (CDVViewController*)self.viewController;
     NSDictionary* settings = self.commandDelegate.settings;
 
-    NSString *scheme = [settings cordovaSettingForKey:@"scheme"];
-
-    // If scheme is file or nil, then default to file scheme
-    self.cdvIsFileScheme = [scheme isEqualToString: @"file"] || scheme == nil;
-
-    NSString *hostname = @"";
-    if(!self.cdvIsFileScheme) {
-        if(scheme == nil || [WKWebView handlesURLScheme:scheme]){
-            scheme = @"app";
-        }
-        vc.appScheme = scheme;
-
-        hostname = [settings cordovaSettingForKey:@"hostname"];
-        if(hostname == nil){
-            hostname = @"localhost";
-        }
-
-        self.CDV_ASSETS_URL = [NSString stringWithFormat:@"%@://%@", scheme, hostname];
+    NSString *hostname = [settings cordovaSettingForKey:@"hostname"];
+    if(hostname == nil){
+        hostname = @"localhost";
     }
+    NSString *scheme = [settings cordovaSettingForKey:@"scheme"];
+    if(scheme == nil || [WKWebView handlesURLScheme:scheme]){
+        scheme = @"app";
+    }
+    vc.appScheme = scheme;
+    self.CDV_ASSETS_URL = [NSString stringWithFormat:@"%@://%@", scheme, hostname];
 
-    CDVWebViewUIDelegate* uiDelegate = [[CDVWebViewUIDelegate alloc] initWithTitle:[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleDisplayName"]];
-    uiDelegate.allowNewWindows = [settings cordovaBoolSettingForKey:@"AllowNewWindows" defaultValue:NO];
-    self.uiDelegate = uiDelegate;
+    self.uiDelegate = [[CDVWebViewUIDelegate alloc] initWithTitle:[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleDisplayName"]];
 
     CDVWebViewWeakScriptMessageHandler *weakScriptMessageHandler = [[CDVWebViewWeakScriptMessageHandler alloc] initWithScriptMessageHandler:self];
 
     WKUserContentController* userContentController = [[WKUserContentController alloc] init];
     [userContentController addScriptMessageHandler:weakScriptMessageHandler name:CDV_BRIDGE_NAME];
-
-    if(self.CDV_ASSETS_URL) {
-        NSString *scriptCode = [NSString stringWithFormat:@"window.CDV_ASSETS_URL = '%@';", self.CDV_ASSETS_URL];
-        WKUserScript *wkScript = [[WKUserScript alloc] initWithSource:scriptCode injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES];
-
-        if (wkScript) {
-            [userContentController addUserScript:wkScript];
-        }
+    NSString * scriptCode = [NSString stringWithFormat:@"window.CDV_ASSETS_URL = '%@';", self.CDV_ASSETS_URL];
+    WKUserScript *wkScript =
+    [[WKUserScript alloc] initWithSource:scriptCode injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES];
+    if (wkScript) {
+        [userContentController addUserScript:wkScript];
     }
 
     WKWebViewConfiguration* configuration = [self createConfigurationFromSettings:settings];
     configuration.userContentController = userContentController;
 
-    // Do not configure the scheme handler if the scheme is default (file)
-    if(!self.cdvIsFileScheme) {
-        self.schemeHandler = [[CDVURLSchemeHandler alloc] initWithVC:vc];
-        [configuration setURLSchemeHandler:self.schemeHandler forURLScheme:scheme];
-    }
-
+    self.schemeHandler = [[CDVURLSchemeHandler alloc] initWithVC:vc];
+    [configuration setURLSchemeHandler:self.schemeHandler forURLScheme:scheme];
     // re-create WKWebView, since we need to update configuration
     WKWebView* wkWebView = [[WKWebView alloc] initWithFrame:self.engineWebView.frame configuration:configuration];
     wkWebView.UIDelegate = self.uiDelegate;
@@ -301,10 +272,7 @@ static void * KVOContext = &KVOContext;
 - (id)loadRequest:(NSURLRequest*)request
 {
     if ([self canLoadRequest:request]) { // can load, differentiate between file urls and other schemes
-        if(request.URL.fileURL && self.cdvIsFileScheme) {
-            NSURL* readAccessUrl = [request.URL URLByDeletingLastPathComponent];
-            return [(WKWebView*)_engineWebView loadFileURL:request.URL allowingReadAccessToURL:readAccessUrl];
-        } else if (request.URL.fileURL) {
+        if (request.URL.fileURL) {
             NSURL* startURL = [NSURL URLWithString:((CDVViewController *)self.viewController).startPage];
             NSString* startFilePath = [self.commandDelegate pathForResource:[startURL path]];
             NSURL *url = [[NSURL URLWithString:self.CDV_ASSETS_URL] URLByAppendingPathComponent:request.URL.path];

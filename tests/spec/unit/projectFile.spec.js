@@ -19,11 +19,11 @@
 
 const os = require('os');
 const path = require('path');
-const fs = require('fs-extra');
+const shell = require('shelljs');
 const projectFile = require('../../../bin/templates/scripts/cordova/lib/projectFile');
 
 const iosProject = path.join(os.tmpdir(), 'plugman/projectFile');
-const iosProjectFixture = path.join(__dirname, 'fixtures/ios-config-xml');
+const iosProjectFixture = path.join(__dirname, 'fixtures/ios-config-xml/*');
 
 const locations = {
     root: iosProject,
@@ -32,33 +32,33 @@ const locations = {
 
 describe('projectFile', () => {
     beforeEach(() => {
-        fs.copySync(iosProjectFixture, iosProject);
+        shell.cp('-rf', iosProjectFixture, iosProject);
     });
 
     afterEach(() => {
-        fs.removeSync(iosProject);
+        shell.rm('-rf', iosProject);
     });
 
     describe('parse method', () => {
         it('Test#001 : should throw if project is not an xcode project', () => {
-            fs.removeSync(path.join(iosProject, 'SampleApp', 'SampleApp.xcodeproj'));
+            shell.rm('-rf', path.join(iosProject, 'SampleApp', 'SampleApp.xcodeproj'));
             expect(() => { projectFile.parse(); }).toThrow();
         });
         it('Test#002 : should throw if project does not contain an appropriate config.xml file', () => {
-            fs.removeSync(path.join(iosProject, 'SampleApp', 'config.xml'));
+            shell.rm(path.join(iosProject, 'SampleApp', 'config.xml'));
             expect(() => { projectFile.parse(locations); })
                 .toThrow(new Error('Could not find *-Info.plist file, or config.xml file.'));
         });
         it('Test#003 : should throw if project does not contain an appropriate -Info.plist file', () => {
-            fs.removeSync(path.join(iosProject, 'SampleApp', 'SampleApp-Info.plist'));
+            shell.rm(path.join(iosProject, 'SampleApp', 'SampleApp-Info.plist'));
             expect(() => { projectFile.parse(locations); })
                 .toThrow(new Error('Could not find *-Info.plist file, or config.xml file.'));
         });
         it('Test#004 : should return right directory when multiple .plist files are present', () => {
             // Create a folder named A with config.xml and .plist files in it
             const pathToFolderA = path.join(iosProject, 'A');
-            fs.ensureDirSync(pathToFolderA);
-            fs.copySync(path.join(iosProject, 'SampleApp'), pathToFolderA);
+            shell.mkdir(pathToFolderA);
+            shell.cp('-rf', path.join(iosProject, 'SampleApp/*'), pathToFolderA);
 
             const parsedProjectFile = projectFile.parse(locations);
             const pluginsDir = parsedProjectFile.plugins_dir;

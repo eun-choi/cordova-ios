@@ -26,7 +26,7 @@ var WkWebKit = {
         exec(null, null, 'CDVWebViewEngine', 'allowsBackForwardNavigationGestures', [allow]);
     },
     convertFilePath: function (path) {
-        if (!path || !window.CDV_ASSETS_URL) {
+        if (!path) {
             return path;
         }
         if (path.startsWith('/')) {

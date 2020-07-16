@@ -18,7 +18,7 @@
  */
 
 const rewire = require('rewire');
-const which = require('which');
+const shell = require('shelljs');
 const versions = require('../../../../bin/templates/scripts/cordova/lib/versions');
 
 describe('check_reqs', () => {
@@ -33,16 +33,16 @@ describe('check_reqs', () => {
         beforeEach(() => {
             checkTool = checkReqs.__get__('checkTool');
 
-            spyOn(which, 'sync').and.returnValue('/bin/node');
+            spyOn(shell, 'which').and.returnValue('/bin/node');
             spyOn(versions, 'get_tool_version').and.returnValue(Promise.resolve('1.0.0'));
         });
 
         it('should not have found tool.', () => {
-            which.sync.and.returnValue(false);
+            shell.which.and.returnValue(false);
 
             return checkTool('node', '1.0.0').then(
                 () => fail('Expected promise to be rejected'),
-                reason => expect(reason.message).toContain('node was not found.')
+                reason => expect(reason).toContain('node was not found.')
             );
         });
 
@@ -62,7 +62,7 @@ describe('check_reqs', () => {
         it('should reject because tool does not meet minimum requirement.', () => {
             return checkTool('node', '1.0.1').then(
                 () => fail('Expected promise to be rejected'),
-                reason => expect(reason.message).toContain('version 1.0.1 or greater, you have version 1.0.0')
+                reason => expect(reason).toContain('version 1.0.1 or greater, you have version 1.0.0')
             );
         });
     });

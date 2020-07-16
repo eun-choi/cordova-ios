@@ -21,11 +21,10 @@
 const fs = require('fs-extra');
 const path = require('path');
 const util = require('util');
-const {
-    CordovaError,
-    events,
-    superspawn: { spawn }
-} = require('cordova-common');
+const events = require('cordova-common').events;
+const Q = require('q');
+const superspawn = require('cordova-common').superspawn;
+const CordovaError = require('cordova-common').CordovaError;
 
 Podfile.FILENAME = 'Podfile';
 Podfile.declarationRegexpMap = {
@@ -320,7 +319,7 @@ Podfile.prototype.write = function () {
                 .map(tag => `:${tag} => '${json[tag]}'`);
 
             if ('configurations' in json) {
-                options.push(`:configurations => [${json.configurations.split(',').map(conf => `'${conf.trim()}'`).join(',')}]`);
+                options.push(`:configurations => [${json['configurations'].split(',').map(conf => `'${conf.trim()}'`).join(',')}]`);
             }
             if ('options' in json) {
                 options = [json.options];
@@ -375,7 +374,7 @@ Podfile.prototype.before_install = function (toolOptions) {
     fs.writeFileSync(debugConfigPath, debugContents, 'utf8');
     fs.writeFileSync(releaseConfigPath, releaseContents, 'utf8');
 
-    return Promise.resolve(toolOptions);
+    return Q.resolve(toolOptions);
 };
 
 Podfile.prototype.install = function (requirementsCheckerFunction) {
@@ -386,7 +385,7 @@ Podfile.prototype.install = function (requirementsCheckerFunction) {
     let first = true;
 
     if (!requirementsCheckerFunction) {
-        requirementsCheckerFunction = Promise.resolve();
+        requirementsCheckerFunction = Q();
     }
 
     return requirementsCheckerFunction()
@@ -395,9 +394,9 @@ Podfile.prototype.install = function (requirementsCheckerFunction) {
             if (toolOptions.ignore) {
                 events.emit('verbose', '==== pod install start ====\n');
                 events.emit('verbose', toolOptions.ignoreMessage);
-                return Promise.resolve();
+                return Q.resolve();
             } else {
-                return spawn('pod', ['install', '--verbose'], opts)
+                return superspawn.spawn('pod', ['install', '--verbose'], opts)
                     .progress(stdio => {
                         if (stdio.stderr) { console.error(stdio.stderr); }
                         if (stdio.stdout) {

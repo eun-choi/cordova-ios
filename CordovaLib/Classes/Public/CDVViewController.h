@@ -62,7 +62,7 @@
 - (NSString*)appURLScheme;
 - (NSURL*)errorURL;
 
-- (UIColor*)colorFromColorString:(NSString*)colorString CDV_DEPRECATED(7.0.0, "Use BackgroundColor in xcassets");
+- (UIColor*)colorFromColorString:(NSString*)colorString;
 - (NSArray*)parseInterfaceOrientations:(NSArray*)orientations;
 - (BOOL)supportsOrientation:(UIInterfaceOrientation)orientation;
 
@@ -71,7 +71,5 @@
 - (void)registerPlugin:(CDVPlugin*)plugin withPluginName:(NSString*)pluginName;
 
 - (void)parseSettingsWithParser:(NSObject <NSXMLParserDelegate>*)delegate;
-
-- (void)showLaunchScreen:(BOOL)visible;
 
 @end

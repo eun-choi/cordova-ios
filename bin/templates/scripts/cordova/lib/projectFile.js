@@ -22,6 +22,7 @@ const plist = require('plist');
 const _ = require('underscore');
 const path = require('path');
 const fs = require('fs-extra');
+const shell = require('shelljs');
 
 const pluginHandlers = require('./plugman/pluginHandlers');
 const CordovaError = require('cordova-common').CordovaError;
@@ -71,21 +72,13 @@ function parseProjectFile (locations) {
             fs.writeFileSync(pbxPath, xcodeproj.writeSync());
             if (Object.keys(this.frameworks).length === 0) {
                 // If there is no framework references remain in the project, just remove this file
-                fs.removeSync(frameworks_file);
+                shell.rm('-rf', frameworks_file);
                 return;
             }
             fs.writeFileSync(frameworks_file, JSON.stringify(this.frameworks, null, 4));
         },
         getPackageName: function () {
-            const packageName = plist.parse(fs.readFileSync(plist_file, 'utf8')).CFBundleIdentifier;
-            let bundleIdentifier = packageName;
-
-            const variables = packageName.match(/\$\((\w+)\)/); // match $(VARIABLE), if any
-            if (variables && variables.length >= 2) {
-                bundleIdentifier = xcodeproj.getBuildProperty(variables[1]);
-            }
-
-            return bundleIdentifier.replace(/^"/, '').replace(/"$/, '');
+            return plist.parse(fs.readFileSync(plist_file, 'utf8')).CFBundleIdentifier;
         },
         getInstaller: function (name) {
             return pluginHandlers.getInstaller(name);
