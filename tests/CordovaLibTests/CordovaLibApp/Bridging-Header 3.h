@@ -14,13 +14,15 @@
  specific language governing permissions and limitations
  under the License.
  */
+//
+//  Bridging-Header.h
+//  __PROJECT_NAME__
+//
+//  Created by ___FULLUSERNAME___ on ___DATE___.
+//  Copyright ___ORGANIZATIONNAME___ ___YEAR___. All rights reserved.
+//
+//
+//  Use this file to import your target's public headers that you would like to expose to Swift.
+//
 
-#import <Foundation/Foundation.h>
-
-@protocol CDVScreenOrientationDelegate <NSObject>
-
-- (UIInterfaceOrientationMask)supportedInterfaceOrientations;
-
-- (BOOL)shouldAutorotate;
-
-@end
+#import <Cordova/CDV.h>
