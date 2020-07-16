@@ -6,9 +6,7 @@
  to you under the Apache License, Version 2.0 (the
  "License"); you may not use this file except in compliance
  with the License.  You may obtain a copy of the License at
-
  http://www.apache.org/licenses/LICENSE-2.0
-
  Unless required by applicable law or agreed to in writing,
  software distributed under the License is distributed on an
  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -63,50 +61,6 @@ describe('check_reqs', () => {
             return checkTool('node', '1.0.1').then(
                 () => fail('Expected promise to be rejected'),
                 reason => expect(reason).toContain('version 1.0.1 or greater, you have version 1.0.0')
-            );
-        });
-    });
-
-    describe('check_cocoapods method', () => {
-        let toolsChecker;
-        beforeEach(() => {
-            toolsChecker = jasmine.createSpy('toolsChecker')
-                .and.returnValue(Promise.resolve({ version: '1.2.3' }));
-        });
-
-        it('should resolve when on an unsupported platform', () => {
-            checkReqs.__set__({
-                os_platform_is_supported: () => false
-            });
-
-            return checkReqs.check_cocoapods(toolsChecker).then(toolOptions => {
-                expect(toolsChecker).not.toHaveBeenCalled();
-                expect(toolOptions.ignore).toBeDefined();
-                expect(toolOptions.ignoreMessage).toBeDefined();
-            });
-        });
-
-        it('should resolve when toolsChecker resolves', () => {
-            checkReqs.__set__({
-                os_platform_is_supported: () => true
-            });
-            spyOn(shell, 'exec').and.returnValue({ code: 1 });
-
-            return checkReqs.check_cocoapods(toolsChecker).then(() => {
-                expect(shell.exec).toHaveBeenCalled();
-            });
-        });
-
-        it('should reject when toolsChecker rejects', () => {
-            checkReqs.__set__({
-                os_platform_is_supported: () => true
-            });
-            const testError = new Error();
-            toolsChecker.and.callFake(() => Promise.reject(testError));
-
-            return checkReqs.check_cocoapods(toolsChecker).then(
-                () => fail('Expected promise to be rejected'),
-                err => expect(err).toBe(testError)
             );
         });
     });
