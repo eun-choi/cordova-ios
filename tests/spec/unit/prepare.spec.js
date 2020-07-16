@@ -18,7 +18,8 @@
  */
 
 'use strict';
-const fs = require('fs-extra');
+const fs = require('fs');
+const fse = require('fs-extra');
 
 const EventEmitter = require('events');
 const os = require('os');
@@ -641,7 +642,7 @@ describe('prepare', () => {
                 const xcode = require('xcode');
                 const proj = new xcode.project(p.locations.pbxproj); /* eslint new-cap : 0 */
                 proj.parseSync();
-                const prop = proj.getBuildProperty('PRODUCT_BUNDLE_IDENTIFIER', undefined, 'SampleApp');
+                const prop = proj.getBuildProperty('PRODUCT_BUNDLE_IDENTIFIER');
                 expect(prop).toEqual('testpkg');
             });
         });
@@ -660,7 +661,7 @@ describe('prepare', () => {
                 const xcode = require('xcode');
                 const proj = new xcode.project(p.locations.pbxproj); /* eslint new-cap : 0 */
                 proj.parseSync();
-                const prop = proj.getBuildProperty('PRODUCT_BUNDLE_IDENTIFIER', undefined, 'SampleApp');
+                const prop = proj.getBuildProperty('PRODUCT_BUNDLE_IDENTIFIER');
                 expect(prop).toEqual('testpkg_ios');
             });
         });
@@ -739,7 +740,21 @@ describe('prepare', () => {
         });
 
         it('<access> - should handle wildcard, with NSAllowsArbitraryLoadsInWebContent', () => {
-            const my_config = new ConfigParser(path.join(FIXTURES, 'prepare', 'allows-arbitrary-loads-in-web-content-true.xml'));
+            const origReadFile = fse.readFileSync;
+            const readFile = spyOn(fse, 'readFileSync');
+            const configXml = '<?xml version="1.0" encoding="UTF-8"?><widget id="io.cordova.hellocordova" ios-CFBundleIdentifier="io.cordova.hellocordova.ios" version="0.0.1" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0"><name>SampleApp</name>' +
+            '<access origin="*" allows-arbitrary-loads-in-web-content="true" />' +
+            '</widget>';
+
+            readFile.and.callFake((...args) => {
+                if (args[0] === 'fake/path') {
+                    return configXml;
+                }
+                return origReadFile(...args);
+            });
+
+            const my_config = new ConfigParser('fake/path');
+
             return updateProject(my_config, p.locations).then(() => {
                 const ats = plist.build.calls.mostRecent().args[0].NSAppTransportSecurity;
                 expect(ats.NSAllowsArbitraryLoads).toEqual(true);
@@ -751,7 +766,20 @@ describe('prepare', () => {
         });
 
         it('<access> - should handle wildcard, with NSAllowsArbitraryLoadsForMedia set (fixed allows-arbitrary-loads-for-media)', () => {
-            const my_config = new ConfigParser(path.join(FIXTURES, 'prepare', 'allows-arbitrary-loads-for-media-true.xml'));
+            const origReadFile = fse.readFileSync;
+            const readFile = spyOn(fse, 'readFileSync');
+            const configXml = '<?xml version="1.0" encoding="UTF-8"?><widget id="io.cordova.hellocordova" ios-CFBundleIdentifier="io.cordova.hellocordova.ios" version="0.0.1" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0"><name>SampleApp</name>' +
+            '<access origin="*" allows-arbitrary-loads-for-media="true" />' +
+            '</widget>';
+
+            readFile.and.callFake((...args) => {
+                if (args[0] === 'fake/path') {
+                    return configXml;
+                }
+                return origReadFile(...args);
+            });
+
+            const my_config = new ConfigParser('fake/path');
             return updateProject(my_config, p.locations).then(() => {
                 const ats = plist.build.calls.mostRecent().args[0].NSAppTransportSecurity;
                 expect(ats.NSAllowsArbitraryLoads).toEqual(true);
@@ -763,7 +791,20 @@ describe('prepare', () => {
         });
 
         it('<access> - should handle wildcard, with NSAllowsArbitraryLoadsForMedia not set (fixed allows-arbitrary-loads-for-media)', () => {
-            const my_config = new ConfigParser(path.join(FIXTURES, 'prepare', 'allows-arbitrary-loads-for-media-false.xml'));
+            const origReadFile = fse.readFileSync;
+            const readFile = spyOn(fse, 'readFileSync');
+            const configXml = '<?xml version="1.0" encoding="UTF-8"?><widget id="io.cordova.hellocordova" ios-CFBundleIdentifier="io.cordova.hellocordova.ios" version="0.0.1" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0"><name>SampleApp</name>' +
+            '<access origin="*" allows-arbitrary-loads-for-media="false" />' +
+            '</widget>';
+
+            readFile.and.callFake((...args) => {
+                if (args[0] === 'fake/path') {
+                    return configXml;
+                }
+                return origReadFile(...args);
+            });
+
+            const my_config = new ConfigParser('fake/path');
             return updateProject(my_config, p.locations).then(() => {
                 const ats = plist.build.calls.mostRecent().args[0].NSAppTransportSecurity;
                 expect(ats.NSAllowsArbitraryLoads).toEqual(true);
@@ -775,7 +816,20 @@ describe('prepare', () => {
         });
 
         it('<access> - should handle wildcard, with NSAllowsArbitraryLoadsForMedia set (deprecated allows-arbitrary-loads-in-media)', () => {
-            const my_config = new ConfigParser(path.join(FIXTURES, 'prepare', 'allows-arbitrary-loads-in-media-true.xml'));
+            const origReadFile = fse.readFileSync;
+            const readFile = spyOn(fse, 'readFileSync');
+            const configXml = '<?xml version="1.0" encoding="UTF-8"?><widget id="io.cordova.hellocordova" ios-CFBundleIdentifier="io.cordova.hellocordova.ios" version="0.0.1" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0"><name>SampleApp</name>' +
+            '<access origin="*" allows-arbitrary-loads-in-media="true" />' +
+            '</widget>';
+
+            readFile.and.callFake((...args) => {
+                if (args[0] === 'fake/path') {
+                    return configXml;
+                }
+                return origReadFile(...args);
+            });
+
+            const my_config = new ConfigParser('fake/path');
             return updateProject(my_config, p.locations).then(() => {
                 const ats = plist.build.calls.mostRecent().args[0].NSAppTransportSecurity;
                 expect(ats.NSAllowsArbitraryLoads).toEqual(true);
@@ -787,7 +841,20 @@ describe('prepare', () => {
         });
 
         it('<access> - should handle wildcard, with NSAllowsArbitraryLoadsForMedia not set (deprecated allows-arbitrary-loads-in-media)', () => {
-            const my_config = new ConfigParser(path.join(FIXTURES, 'prepare', 'allows-arbitrary-loads-in-media-false.xml'));
+            const origReadFile = fse.readFileSync;
+            const readFile = spyOn(fse, 'readFileSync');
+            const configXml = '<?xml version="1.0" encoding="UTF-8"?><widget id="io.cordova.hellocordova" ios-CFBundleIdentifier="io.cordova.hellocordova.ios" version="0.0.1" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0"><name>SampleApp</name>' +
+            '<access origin="*" allows-arbitrary-loads-in-media="false" />' +
+            '</widget>';
+
+            readFile.and.callFake((...args) => {
+                if (args[0] === 'fake/path') {
+                    return configXml;
+                }
+                return origReadFile(...args);
+            });
+
+            const my_config = new ConfigParser('fake/path');
             return updateProject(my_config, p.locations).then(() => {
                 const ats = plist.build.calls.mostRecent().args[0].NSAppTransportSecurity;
                 expect(ats.NSAllowsArbitraryLoads).toEqual(true);
@@ -799,7 +866,21 @@ describe('prepare', () => {
         });
 
         it('<access> - should handle wildcard, with NSAllowsLocalNetworking', () => {
-            const my_config = new ConfigParser(path.join(FIXTURES, 'prepare', 'allows-local-networking-true.xml'));
+            const origReadFile = fse.readFileSync;
+            const readFile = spyOn(fse, 'readFileSync');
+            const configXml = '<?xml version="1.0" encoding="UTF-8"?><widget id="io.cordova.hellocordova" ios-CFBundleIdentifier="io.cordova.hellocordova.ios" version="0.0.1" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0"><name>SampleApp</name>' +
+            '<access origin="*" allows-local-networking="true" />' +
+            '</widget>';
+
+            readFile.and.callFake((...args) => {
+                if (args[0] === 'fake/path') {
+                    return configXml;
+                }
+                return origReadFile(...args);
+            });
+
+            const my_config = new ConfigParser('fake/path');
+
             return updateProject(my_config, p.locations).then(() => {
                 const ats = plist.build.calls.mostRecent().args[0].NSAppTransportSecurity;
                 expect(ats.NSAllowsArbitraryLoads).toEqual(true);
@@ -811,7 +892,21 @@ describe('prepare', () => {
         });
 
         it('<access> - should handle wildcard, with NSAllowsArbitraryLoadsInWebContent, NSAllowsArbitraryLoadsForMedia, NSAllowsLocalNetworking', () => {
-            const my_config = new ConfigParser(path.join(FIXTURES, 'prepare', 'wildcard-with-mixed-nsallows.xml'));
+            const origReadFile = fse.readFileSync;
+            const readFile = spyOn(fse, 'readFileSync');
+            const configXml = '<?xml version="1.0" encoding="UTF-8"?><widget id="io.cordova.hellocordova" ios-CFBundleIdentifier="io.cordova.hellocordova.ios" version="0.0.1" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0"><name>SampleApp</name>' +
+            '<access origin="*" allows-arbitrary-loads-in-web-content="true" allows-arbitrary-loads-in-media="true" allows-local-networking="true" />' +
+            '</widget>';
+
+            readFile.and.callFake((...args) => {
+                if (args[0] === 'fake/path') {
+                    return configXml;
+                }
+                return origReadFile(...args);
+            });
+
+            const my_config = new ConfigParser('fake/path');
+
             return updateProject(my_config, p.locations).then(() => {
                 const ats = plist.build.calls.mostRecent().args[0].NSAppTransportSecurity;
                 expect(ats.NSAllowsArbitraryLoads).toEqual(true);
@@ -822,7 +917,21 @@ describe('prepare', () => {
             });
         });
         it('<access> - sanity check - no wildcard but has NSAllowsArbitraryLoadsInWebContent, NSAllowsArbitraryLoadsForMedia, NSAllowsLocalNetworking', () => {
-            const my_config = new ConfigParser(path.join(FIXTURES, 'prepare', 'set-origin-with-mixed-nsallows.xml'));
+            const origReadFile = fse.readFileSync;
+            const readFile = spyOn(fse, 'readFileSync');
+            const configXml = '<?xml version="1.0" encoding="UTF-8"?><widget id="io.cordova.hellocordova" ios-CFBundleIdentifier="io.cordova.hellocordova.ios" version="0.0.1" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0"><name>SampleApp</name>' +
+            '<access origin="http://cordova.apache.org" allows-arbitrary-loads-in-web-content="true" allows-arbitrary-loads-in-media="true" allows-local-networking="true" />' +
+            '</widget>';
+
+            readFile.and.callFake((...args) => {
+                if (args[0] === 'fake/path') {
+                    return configXml;
+                }
+                return origReadFile(...args);
+            });
+
+            const my_config = new ConfigParser('fake/path');
+
             return updateProject(my_config, p.locations).then(() => {
                 const ats = plist.build.calls.mostRecent().args[0].NSAppTransportSecurity;
                 expect(ats.NSAllowsArbitraryLoads).toEqual(undefined);
@@ -1078,7 +1187,21 @@ describe('prepare', () => {
         /// ///////////////////////////////////////////////
 
         it('<allow-navigation> - should handle wildcard', () => {
-            const my_config = new ConfigParser(path.join(FIXTURES, 'prepare', 'wildcard-navigation.xml'));
+            const origReadFile = fse.readFileSync;
+            const readFile = spyOn(fse, 'readFileSync');
+            const configXml = '<?xml version="1.0" encoding="UTF-8"?><widget id="io.cordova.hellocordova" ios-CFBundleIdentifier="io.cordova.hellocordova.ios" version="0.0.1" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0"><name>SampleApp</name>' +
+            '<allow-navigation href="*" />' +
+            '</widget>';
+
+            readFile.and.callFake((...args) => {
+                if (args[0] === 'fake/path') {
+                    return configXml;
+                }
+                return origReadFile(...args);
+            });
+
+            const my_config = new ConfigParser('fake/path');
+
             return updateProject(my_config, p.locations).then(() => {
                 const ats = plist.build.calls.mostRecent().args[0].NSAppTransportSecurity;
                 expect(ats.NSAllowsArbitraryLoads).toEqual(true);
@@ -1090,7 +1213,21 @@ describe('prepare', () => {
         });
 
         it('<allow-navigation> - sanity check - no wildcard but has NSAllowsArbitraryLoadsInWebContent, NSAllowsArbitraryLoadsForMedia, NSAllowsLocalNetworking', () => {
-            const my_config = new ConfigParser(path.join(FIXTURES, 'prepare', 'wildcard-navigation-with-mixed-nsallows.xml'));
+            const origReadFile = fse.readFileSync;
+            const readFile = spyOn(fse, 'readFileSync');
+            const configXml = '<?xml version="1.0" encoding="UTF-8"?><widget id="io.cordova.hellocordova" ios-CFBundleIdentifier="io.cordova.hellocordova.ios" version="0.0.1" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0"><name>SampleApp</name>' +
+            '<allow-navigation href="http://cordova.apache.org" allows-arbitrary-loads-in-web-content="true" allows-arbitrary-loads-in-media="true" allows-local-networking="true" />' +
+            '</widget>';
+
+            readFile.and.callFake((...args) => {
+                if (args[0] === 'fake/path') {
+                    return configXml;
+                }
+                return origReadFile(...args);
+            });
+
+            const my_config = new ConfigParser('fake/path');
+
             return updateProject(my_config, p.locations).then(() => {
                 const ats = plist.build.calls.mostRecent().args[0].NSAppTransportSecurity;
                 expect(ats.NSAllowsArbitraryLoads).toEqual(undefined);

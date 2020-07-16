@@ -19,7 +19,7 @@
 
 'use strict';
 const Q = require('q');
-const fs = require('fs-extra');
+const fs = require('fs');
 const path = require('path');
 const shell = require('shelljs');
 const unorm = require('unorm');
@@ -284,7 +284,7 @@ function handleBuildSettings (platformConfig, locations, infoPlist) {
         return Q.reject(new CordovaError(`Could not parse ${locations.pbxproj}: ${err}`));
     }
 
-    const origPkg = project.xcode.getBuildProperty('PRODUCT_BUNDLE_IDENTIFIER', undefined, platformConfig.name());
+    const origPkg = project.xcode.getBuildProperty('PRODUCT_BUNDLE_IDENTIFIER');
 
     // no build settings provided and we don't need to update build settings for launch storyboards,
     // then we don't need to parse and update .pbxproj file
@@ -294,7 +294,7 @@ function handleBuildSettings (platformConfig, locations, infoPlist) {
 
     if (origPkg !== pkg) {
         events.emit('verbose', `Set PRODUCT_BUNDLE_IDENTIFIER to ${pkg}.`);
-        project.xcode.updateBuildProperty('PRODUCT_BUNDLE_IDENTIFIER', pkg, null, platformConfig.name());
+        project.xcode.updateBuildProperty('PRODUCT_BUNDLE_IDENTIFIER', pkg);
     }
 
     if (targetDevice) {
