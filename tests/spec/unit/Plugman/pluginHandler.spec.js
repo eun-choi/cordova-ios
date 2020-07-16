@@ -18,7 +18,7 @@
 */
 
 const os = require('os');
-const fs = require('fs-extra');
+const fs = require('fs');
 const path = require('path');
 const rewire = require('rewire');
 const shell = require('shelljs');

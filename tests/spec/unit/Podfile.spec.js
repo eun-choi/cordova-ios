@@ -19,7 +19,7 @@
 
 const path = require('path');
 const util = require('util');
-const fs = require('fs-extra');
+const fs = require('fs');
 const CordovaError = require('cordova-common').CordovaError;
 
 const PROJECT_NAME = 'testProj';

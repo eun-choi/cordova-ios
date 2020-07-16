@@ -17,15 +17,11 @@
  under the License.
  */
 
-#import "CDVAvailability.h"
-#import "CDVAvailabilityDeprecated.h"
-#import "CDVAppDelegate.h"
-#import "CDVPlugin.h"
-#import "CDVPluginResult.h"
-#import "CDVViewController.h"
-#import "CDVCommandDelegate.h"
-#import "CDVInvokedUrlCommand.h"
-#import "CDVWhitelist.h"
-#import "CDVScreenOrientationDelegate.h"
-#import "CDVTimer.h"
-#import "CDVUserAgentUtil.h"
+#import <Foundation/Foundation.h>
+
+@interface CDVUserAgentUtil : NSObject
++ (NSString*)originalUserAgent;
++ (void)acquireLock:(void (^)(NSInteger lockToken))block;
++ (void)releaseLock:(NSInteger*)lockToken;
++ (void)setUserAgent:(NSString*)value lockToken:(NSInteger)lockToken;
+@end

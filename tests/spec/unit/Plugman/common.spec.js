@@ -16,7 +16,7 @@
  *
 */
 
-const fs = require('fs-extra');
+const fs = require('fs');
 const path = require('path');
 const osenv = require('os');
 const shell = require('shelljs');
@@ -129,14 +129,14 @@ describe('common handler routines', () => {
     });
 
     describe('deleteJava', () => {
-        // This is testing that shelljs.rm is removing the source file.
-        it('Test 009 : source file should have been removed', () => {
+        it('Test 009 : should call fs.unlinkSync on the provided paths', () => {
             shell.mkdir('-p', srcDirTree);
             fs.writeFileSync(srcFile, 'contents', 'utf-8');
 
-            expect(fs.existsSync(srcFile)).toBe(true);
+            const s = spyOn(fs, 'unlinkSync').and.callThrough();
             removeFileAndParents(project_dir, srcFile);
-            expect(fs.existsSync(srcFile)).toBe(false);
+            expect(s).toHaveBeenCalled();
+            expect(s).toHaveBeenCalledWith(path.resolve(project_dir, srcFile));
 
             shell.rm('-rf', srcDirTree);
         });
