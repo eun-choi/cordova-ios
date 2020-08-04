@@ -6,7 +6,9 @@
     to you under the Apache License, Version 2.0 (the
     "License"); you may not use this file except in compliance
     with the License.  You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
     Unless required by applicable law or agreed to in writing,
     software distributed under the License is distributed on an
     "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -282,7 +284,7 @@ function handleBuildSettings (platformConfig, locations, infoPlist) {
         return Q.reject(new CordovaError(`Could not parse ${locations.pbxproj}: ${err}`));
     }
 
-    const origPkg = project.xcode.getBuildProperty('PRODUCT_BUNDLE_IDENTIFIER', undefined, platformConfig.name());
+    const origPkg = project.xcode.getBuildProperty('PRODUCT_BUNDLE_IDENTIFIER');
 
     // no build settings provided and we don't need to update build settings for launch storyboards,
     // then we don't need to parse and update .pbxproj file
@@ -292,7 +294,7 @@ function handleBuildSettings (platformConfig, locations, infoPlist) {
 
     if (origPkg !== pkg) {
         events.emit('verbose', `Set PRODUCT_BUNDLE_IDENTIFIER to ${pkg}.`);
-        project.xcode.updateBuildProperty('PRODUCT_BUNDLE_IDENTIFIER', pkg, null, platformConfig.name());
+        project.xcode.updateBuildProperty('PRODUCT_BUNDLE_IDENTIFIER', pkg);
     }
 
     if (targetDevice) {
@@ -970,12 +972,14 @@ function getOrientationValue (platformConfig) {
             NSExceptionMinimumTLSVersion, // String
             NSExceptionRequiresForwardSecrecy, // boolean
             NSRequiresCertificateTransparency, // boolean
+
             // the three below _only_ show when the Hostname is '*'
             // if any of the three are set, it disables setting NSAllowsArbitraryLoads
             // (Apple already enforces this in ATS)
             NSAllowsArbitraryLoadsInWebContent, // boolean (default: false)
             NSAllowsLocalNetworking, // boolean (default: false)
             NSAllowsArbitraryLoadsForMedia, // boolean (default:false)
+
         }
 */
 function processAccessAndAllowNavigationEntries (config) {
@@ -1028,6 +1032,7 @@ function processAccessAndAllowNavigationEntries (config) {
             NSExceptionMinimumTLSVersion, // String (default: 'TLSv1.2')
             NSExceptionRequiresForwardSecrecy, // boolean (default: true)
             NSRequiresCertificateTransparency, // boolean (default: false)
+
             // the three below _only_ apply when the Hostname is '*'
             // if any of the three are set, it disables setting NSAllowsArbitraryLoads
             // (Apple already enforces this in ATS)
@@ -1035,6 +1040,7 @@ function processAccessAndAllowNavigationEntries (config) {
             NSAllowsLocalNetworking, // boolean (default: false)
             NSAllowsArbitraryLoadsForMedia, // boolean (default:false)
         }
+
     null is returned if the URL cannot be parsed, or is to be skipped for ATS.
 */
 function parseWhitelistUrlForATS (url, options) {
