@@ -1,5 +1,5 @@
 // Platform: ios
-// 17ed8ef404a1efc5cfc6c14e5df031f7d84e23f8
+// 538a985db128858c0a0eb4dd40fb9c8e5433fc94
 /*
  Licensed to the Apache Software Foundation (ASF) under one
  or more contributor license agreements.  See the NOTICE file
@@ -19,7 +19,7 @@
  under the License.
 */
 ;(function() {
-var PLATFORM_VERSION_BUILD_LABEL = '6.0.0';
+var PLATFORM_VERSION_BUILD_LABEL = '6.1.1';
 // file: src/scripts/require.js
 var require;
 var define;
@@ -1247,6 +1247,10 @@ module.exports = {
         // see the file under plugin/ios/wkwebkit.js
         require('cordova/modulemapper').clobbers('cordova/plugin/ios/wkwebkit', 'window.WkWebView');
 
+        // Attach the splashscreen utility to window.navigator.splashscreen
+        // see the file under plugin/ios/launchscreen.js
+        require('cordova/modulemapper').clobbers('cordova/plugin/ios/launchscreen', 'navigator.splashscreen');
+
         require('cordova/channel').onNativeReady.fire();
     }
 };
@@ -1421,6 +1425,24 @@ for (var key in console) {
         console[key] = wrappedOrigCall(WinConsole[key], console[key]);
     }
 }
+
+});
+
+// file: ../cordova-ios/cordova-js-src/plugin/ios/launchscreen.js
+define("cordova/plugin/ios/launchscreen", function(require, exports, module) {
+
+var exec = require('cordova/exec');
+
+var launchscreen = {
+    show: function () {
+        exec(null, null, 'LaunchScreen', 'show', []);
+    },
+    hide: function () {
+        exec(null, null, 'LaunchScreen', 'hide', []);
+    }
+};
+
+module.exports = launchscreen;
 
 });
 
@@ -1767,7 +1789,7 @@ var WkWebKit = {
         exec(null, null, 'CDVWebViewEngine', 'allowsBackForwardNavigationGestures', [allow]);
     },
     convertFilePath: function (path) {
-        if (!path) {
+        if (!path || !window.CDV_ASSETS_URL) {
             return path;
         }
         if (path.startsWith('/')) {

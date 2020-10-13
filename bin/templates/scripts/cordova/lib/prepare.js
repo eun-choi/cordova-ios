@@ -6,7 +6,9 @@
     to you under the Apache License, Version 2.0 (the
     "License"); you may not use this file except in compliance
     with the License.  You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
     Unless required by applicable law or agreed to in writing,
     software distributed under the License is distributed on an
     "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -16,10 +18,9 @@
 */
 
 'use strict';
-const Q = require('q');
-const fs = require('fs');
+
+const fs = require('fs-extra');
 const path = require('path');
-const shell = require('shelljs');
 const unorm = require('unorm');
 const plist = require('plist');
 const URL = require('url');
@@ -34,10 +35,6 @@ const FileUpdater = require('cordova-common').FileUpdater;
 const projectFile = require('./projectFile');
 
 // launch storyboard and related constants
-const LAUNCHIMAGE_BUILD_SETTING = 'ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME';
-const LAUNCHIMAGE_BUILD_SETTING_VALUE = 'LaunchImage';
-const UI_LAUNCH_STORYBOARD_NAME = 'UILaunchStoryboardName';
-const CDV_LAUNCH_STORYBOARD_NAME = 'CDVLaunchScreen';
 const IMAGESET_COMPACT_SIZE_CLASS = 'compact';
 const CDV_ANY_SIZE_CLASS = 'any';
 
@@ -48,13 +45,13 @@ module.exports.prepare = function (cordovaProject, options) {
     this._config = updateConfigFile(cordovaProject.projectConfig, munger, this.locations);
 
     // Update own www dir with project's www assets and plugins' assets and js-files
-    return Q.when(updateWww(cordovaProject, this.locations))
+    return updateWww(cordovaProject, this.locations)
         // update project according to config.xml changes.
         .then(() => updateProject(this._config, this.locations))
         .then(() => {
             updateIcons(cordovaProject, this.locations);
-            updateSplashScreens(cordovaProject, this.locations);
             updateLaunchStoryboardImages(cordovaProject, this.locations);
+            updateBackgroundColor(cordovaProject, this.locations);
             updateFileResources(cordovaProject, this.locations);
         })
         .then(() => {
@@ -74,16 +71,16 @@ module.exports.clean = function (options) {
     const projectConfigFile = path.join(projectRoot, 'config.xml');
     if ((options && options.noPrepare) || !fs.existsSync(projectConfigFile) ||
             !fs.existsSync(this.locations.configXml)) {
-        return Q();
+        return Promise.resolve();
     }
 
     const projectConfig = new ConfigParser(this.locations.configXml);
 
-    return Q().then(() => {
+    return Promise.resolve().then(() => {
         cleanWww(projectRoot, this.locations);
         cleanIcons(projectRoot, projectConfig, this.locations);
-        cleanSplashScreens(projectRoot, projectConfig, this.locations);
         cleanLaunchStoryboardImages(projectRoot, projectConfig, this.locations);
+        cleanBackgroundColor(projectRoot, projectConfig, this.locations);
         cleanFileResources(projectRoot, projectConfig, this.locations);
     });
 };
@@ -107,7 +104,7 @@ function updateConfigFile (sourceConfig, configMunger, locations) {
 
     // First cleanup current config and merge project's one into own
     // Overwrite platform config.xml with defaults.xml.
-    shell.cp('-f', locations.defaultConfigXml, locations.configXml);
+    fs.copySync(locations.defaultConfigXml, locations.configXml);
 
     // Then apply config changes from global munge to all config files
     // in project (including project's config)
@@ -157,6 +154,8 @@ function updateWww (cordovaProject, destinations) {
         'verbose', `Merging and updating files from [${sourceDirs.join(', ')}] to ${targetDir}`);
     FileUpdater.mergeAndUpdateDir(
         sourceDirs, targetDir, { rootDir: cordovaProject.root }, logFileOp);
+
+    return Promise.resolve();
 }
 
 /**
@@ -193,28 +192,27 @@ function updateProject (platformConfig, locations) {
     const infoPlist = plist.parse(fs.readFileSync(plistFile, 'utf8'));
 
     // Update version (bundle version)
-    infoPlist['CFBundleShortVersionString'] = version;
+    infoPlist.CFBundleShortVersionString = version;
     const CFBundleVersion = platformConfig.getAttribute('ios-CFBundleVersion') || default_CFBundleVersion(version);
-    infoPlist['CFBundleVersion'] = CFBundleVersion;
+    infoPlist.CFBundleVersion = CFBundleVersion;
 
     if (platformConfig.getAttribute('defaultlocale')) {
-        infoPlist['CFBundleDevelopmentRegion'] = platformConfig.getAttribute('defaultlocale');
+        infoPlist.CFBundleDevelopmentRegion = platformConfig.getAttribute('defaultlocale');
     }
 
     if (displayName) {
-        infoPlist['CFBundleDisplayName'] = displayName;
+        infoPlist.CFBundleDisplayName = displayName;
     }
 
     // replace Info.plist ATS entries according to <access> and <allow-navigation> config.xml entries
     const ats = writeATSEntries(platformConfig);
     if (Object.keys(ats).length > 0) {
-        infoPlist['NSAppTransportSecurity'] = ats;
+        infoPlist.NSAppTransportSecurity = ats;
     } else {
-        delete infoPlist['NSAppTransportSecurity'];
+        delete infoPlist.NSAppTransportSecurity;
     }
 
     handleOrientationSettings(platformConfig, infoPlist);
-    updateProjectPlistForLaunchStoryboard(platformConfig, infoPlist);
 
     /* eslint-disable no-tabs */
     // Write out the plist file with the same formatting as Xcode does
@@ -228,7 +226,7 @@ function updateProject (platformConfig, locations) {
     return handleBuildSettings(platformConfig, locations, infoPlist).then(() => {
         if (name === originalName) {
             events.emit('verbose', `iOS Product Name has not changed (still "${originalName}")`);
-            return Q();
+            return Promise.resolve();
         } else { // CB-11712 <name> was changed, we don't support it'
             const errorString =
             'The product name change (<name> tag) in config.xml is not supported dynamically.\n' +
@@ -238,7 +236,7 @@ function updateProject (platformConfig, locations) {
             '\tcordova platform rm ios\n' +
             '\tcordova platform add ios\n';
 
-            return Q.reject(new CordovaError(errorString));
+            return Promise.reject(new CordovaError(errorString));
         }
     });
 }
@@ -246,24 +244,24 @@ function updateProject (platformConfig, locations) {
 function handleOrientationSettings (platformConfig, infoPlist) {
     switch (getOrientationValue(platformConfig)) {
     case 'portrait':
-        infoPlist['UIInterfaceOrientation'] = ['UIInterfaceOrientationPortrait'];
-        infoPlist['UISupportedInterfaceOrientations'] = ['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationPortraitUpsideDown'];
+        infoPlist.UIInterfaceOrientation = ['UIInterfaceOrientationPortrait'];
+        infoPlist.UISupportedInterfaceOrientations = ['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationPortraitUpsideDown'];
         infoPlist['UISupportedInterfaceOrientations~ipad'] = ['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationPortraitUpsideDown'];
         break;
     case 'landscape':
-        infoPlist['UIInterfaceOrientation'] = ['UIInterfaceOrientationLandscapeLeft'];
-        infoPlist['UISupportedInterfaceOrientations'] = ['UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'];
+        infoPlist.UIInterfaceOrientation = ['UIInterfaceOrientationLandscapeLeft'];
+        infoPlist.UISupportedInterfaceOrientations = ['UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'];
         infoPlist['UISupportedInterfaceOrientations~ipad'] = ['UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'];
         break;
     case 'all':
-        infoPlist['UIInterfaceOrientation'] = ['UIInterfaceOrientationPortrait'];
-        infoPlist['UISupportedInterfaceOrientations'] = ['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationPortraitUpsideDown', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'];
+        infoPlist.UIInterfaceOrientation = ['UIInterfaceOrientationPortrait'];
+        infoPlist.UISupportedInterfaceOrientations = ['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationPortraitUpsideDown', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'];
         infoPlist['UISupportedInterfaceOrientations~ipad'] = ['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationPortraitUpsideDown', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'];
         break;
     case 'default':
-        infoPlist['UISupportedInterfaceOrientations'] = ['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'];
+        infoPlist.UISupportedInterfaceOrientations = ['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'];
         infoPlist['UISupportedInterfaceOrientations~ipad'] = ['UIInterfaceOrientationPortrait', 'UIInterfaceOrientationPortraitUpsideDown', 'UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight'];
-        delete infoPlist['UIInterfaceOrientation'];
+        delete infoPlist.UIInterfaceOrientation;
     }
 }
 
@@ -271,7 +269,6 @@ function handleBuildSettings (platformConfig, locations, infoPlist) {
     const pkg = platformConfig.getAttribute('ios-CFBundleIdentifier') || platformConfig.packageName();
     const targetDevice = parseTargetDevicePreference(platformConfig.getPreference('target-device', 'ios'));
     const deploymentTarget = platformConfig.getPreference('deployment-target', 'ios');
-    const needUpdatedBuildSettingsForLaunchStoryboard = checkIfBuildSettingsNeedUpdatedForLaunchStoryboard(platformConfig, infoPlist);
     const swiftVersion = platformConfig.getPreference('SwiftVersion', 'ios');
 
     let project;
@@ -279,15 +276,15 @@ function handleBuildSettings (platformConfig, locations, infoPlist) {
     try {
         project = projectFile.parse(locations);
     } catch (err) {
-        return Q.reject(new CordovaError(`Could not parse ${locations.pbxproj}: ${err}`));
+        return Promise.reject(new CordovaError(`Could not parse ${locations.pbxproj}: ${err}`));
     }
 
     const origPkg = project.xcode.getBuildProperty('PRODUCT_BUNDLE_IDENTIFIER', undefined, platformConfig.name());
 
     // no build settings provided and we don't need to update build settings for launch storyboards,
     // then we don't need to parse and update .pbxproj file
-    if (origPkg === pkg && !targetDevice && !deploymentTarget && !needUpdatedBuildSettingsForLaunchStoryboard && !swiftVersion) {
-        return Q();
+    if (origPkg === pkg && !targetDevice && !deploymentTarget && !swiftVersion) {
+        return Promise.resolve();
     }
 
     if (origPkg !== pkg) {
@@ -310,11 +307,9 @@ function handleBuildSettings (platformConfig, locations, infoPlist) {
         project.xcode.updateBuildProperty('SWIFT_VERSION', swiftVersion);
     }
 
-    updateBuildSettingsForLaunchStoryboard(project.xcode, platformConfig, infoPlist);
-
     project.write();
 
-    return Q();
+    return Promise.resolve();
 }
 
 function mapIconResources (icons, iconsDir) {
@@ -405,76 +400,120 @@ function cleanIcons (projectRoot, projectConfig, locations) {
     }
 }
 
-function mapSplashScreenResources (splashScreens, splashScreensDir) {
-    const platformSplashScreens = [
-        { dest: 'Default~iphone.png', width: 320, height: 480 },
-        { dest: 'Default@2x~iphone.png', width: 640, height: 960 },
-        { dest: 'Default-Portrait~ipad.png', width: 768, height: 1024 },
-        { dest: 'Default-Portrait@2x~ipad.png', width: 1536, height: 2048 },
-        { dest: 'Default-Landscape~ipad.png', width: 1024, height: 768 },
-        { dest: 'Default-Landscape@2x~ipad.png', width: 2048, height: 1536 },
-        { dest: 'Default-568h@2x~iphone.png', width: 640, height: 1136 },
-        { dest: 'Default-667h.png', width: 750, height: 1334 },
-        { dest: 'Default-736h.png', width: 1242, height: 2208 },
-        { dest: 'Default-Landscape-736h.png', width: 2208, height: 1242 },
-        { dest: 'Default-2436h.png', width: 1125, height: 2436 },
-        { dest: 'Default-Landscape-2436h.png', width: 2436, height: 1125 }
-    ];
-
-    const pathMap = {};
-    platformSplashScreens.forEach(item => {
-        const splash = splashScreens.getBySize(item.width, item.height);
-        if (splash) {
-            const target = path.join(splashScreensDir, item.dest);
-            pathMap[target] = splash.src;
-        }
-    });
-    return pathMap;
-}
-
-function getSplashScreensDir (projectRoot, platformProjDir) {
-    let splashScreensDir;
-    const xcassetsExists = folderExists(path.join(projectRoot, platformProjDir, 'Images.xcassets/'));
-
-    if (xcassetsExists) {
-        splashScreensDir = path.join(platformProjDir, 'Images.xcassets/LaunchImage.launchimage/');
+/**
+ * Returns the directory for the BackgroundColor.colorset asset, or null if no
+ * xcassets exist.
+ *
+ * @param  {string} projectRoot        The project's root directory
+ * @param  {string} platformProjDir    The platform's project directory
+ */
+function getBackgroundColorDir (projectRoot, platformProjDir) {
+    if (folderExists(path.join(projectRoot, platformProjDir, 'Images.xcassets/'))) {
+        return path.join(platformProjDir, 'Images.xcassets', 'BackgroundColor.colorset');
     } else {
-        splashScreensDir = path.join(platformProjDir, 'Resources/splash/');
+        return null;
     }
-
-    return splashScreensDir;
 }
 
-function updateSplashScreens (cordovaProject, locations) {
-    const splashScreens = cordovaProject.projectConfig.getSplashScreens('ios');
-
-    if (splashScreens.length === 0) {
-        events.emit('verbose', 'This app does not have splash screens defined');
-        return;
+function colorPreferenceToComponents (pref) {
+    if (!pref || !pref.match(/^(#[0-9A-Fa-f]{3}|(0x|#)([0-9A-Fa-f]{2})?[0-9A-Fa-f]{6})$/)) {
+        return {
+            platform: 'ios',
+            reference: 'systemBackgroundColor'
+        };
     }
+
+    let red = 'FF';
+    let green = 'FF';
+    let blue = 'FF';
+    let alpha = 1.0;
+
+    if (pref[0] === '#' && pref.length === 4) {
+        red = pref[1] + pref[1];
+        green = pref[2] + pref[2];
+        blue = pref[3] + pref[3];
+    }
+
+    if (pref.length >= 7 && (pref[0] === '#' || pref.substring(0, 2) === '0x')) {
+        let offset = pref[0] === '#' ? 1 : 2;
+
+        if (pref.substring(offset).length === 8) {
+            alpha = parseInt(pref.substring(offset, offset + 2), 16) / 255.0;
+            offset += 2;
+        }
+
+        red = pref.substring(offset, offset + 2);
+        green = pref.substring(offset + 2, offset + 4);
+        blue = pref.substring(offset + 4, offset + 6);
+    }
+
+    return {
+        'color-space': 'srgb',
+        components: {
+            red: '0x' + red.toUpperCase(),
+            green: '0x' + green.toUpperCase(),
+            blue: '0x' + blue.toUpperCase(),
+            alpha: alpha.toFixed(3)
+        }
+    };
+}
+
+/**
+ * Update the background color Contents.json in xcassets.
+ *
+ * @param {Object} cordovaProject The cordova project
+ * @param {Object} locations A dictionary containing useful location paths
+ */
+function updateBackgroundColor (cordovaProject, locations) {
+    const pref = cordovaProject.projectConfig.getPreference('BackgroundColor', 'ios') || '';
 
     const platformProjDir = path.relative(cordovaProject.root, locations.xcodeCordovaProj);
-    const splashScreensDir = getSplashScreensDir(cordovaProject.root, platformProjDir);
-    const resourceMap = mapSplashScreenResources(splashScreens, splashScreensDir);
-    events.emit('verbose', `Updating splash screens at ${splashScreensDir}`);
-    FileUpdater.updatePaths(
-        resourceMap, { rootDir: cordovaProject.root }, logFileOp);
+    const backgroundColorDir = getBackgroundColorDir(cordovaProject.root, platformProjDir);
+
+    if (backgroundColorDir) {
+        const contentsJSON = {
+            colors: [{
+                idiom: 'universal',
+                color: colorPreferenceToComponents(pref)
+            }],
+            info: {
+                author: 'Xcode',
+                version: 1
+            }
+        };
+
+        events.emit('verbose', 'Updating Background Color color set Contents.json');
+        fs.writeFileSync(path.join(cordovaProject.root, backgroundColorDir, 'Contents.json'),
+            JSON.stringify(contentsJSON, null, 2));
+    }
 }
 
-function cleanSplashScreens (projectRoot, projectConfig, locations) {
-    const splashScreens = projectConfig.getSplashScreens('ios');
-    if (splashScreens.length > 0) {
-        const platformProjDir = path.relative(projectRoot, locations.xcodeCordovaProj);
-        const splashScreensDir = getSplashScreensDir(projectRoot, platformProjDir);
-        const resourceMap = mapIconResources(splashScreens, splashScreensDir);
-        Object.keys(resourceMap).forEach(targetSplashPath => {
-            resourceMap[targetSplashPath] = null;
-        });
-        events.emit('verbose', `Cleaning splash screens at ${splashScreensDir}`);
+/**
+ * Resets the background color Contents.json in xcassets to default.
+ *
+ * @param {string} projectRoot Path to the project root
+ * @param {Object} projectConfig The project's config.xml
+ * @param {Object} locations A dictionary containing useful location paths
+ */
+function cleanBackgroundColor (projectRoot, projectConfig, locations) {
+    const platformProjDir = path.relative(projectRoot, locations.xcodeCordovaProj);
+    const backgroundColorDir = getBackgroundColorDir(projectRoot, platformProjDir);
 
-        // Source paths are removed from the map, so updatePaths() will delete the target files.
-        FileUpdater.updatePaths(
-            resourceMap, { rootDir: projectRoot, all: true }, logFileOp);
+    if (backgroundColorDir) {
+        const contentsJSON = {
+            colors: [{
+                idiom: 'universal',
+                color: colorPreferenceToComponents(null)
+            }],
+            info: {
+                author: 'Xcode',
+                version: 1
+            }
+        };
+
+        events.emit('verbose', 'Cleaning Background Color color set Contents.json');
+        fs.writeFileSync(path.join(projectRoot, backgroundColorDir, 'Contents.json'),
+            JSON.stringify(contentsJSON, null, 2));
     }
 }
 
@@ -541,7 +580,7 @@ function alertDeprecatedPreference (configParser) {
             if (newPreferenceKey) {
                 log.push(`It is recommended to replace this preference with "${newPreferenceKey}."`);
             } else {
-                log.push(`There is no replacement for this preference.`);
+                log.push('There is no replacement for this preference.');
             }
 
             /**
@@ -552,7 +591,7 @@ function alertDeprecatedPreference (configParser) {
              * Typically caused by implementation nature or third-party requirement changes.
              */
             if (!isDeprecated) {
-                log.push(`Please note that this preference will be removed in the near future.`);
+                log.push('Please note that this preference will be removed in the near future.');
             }
 
             events.emit('warn', log.join(' '));
@@ -609,7 +648,8 @@ function cleanFileResources (projectRoot, projectConfig, locations) {
  *             height: 'any|com',
  *             filename: undefined|'Default@scale~idiom~widthheight.png',
  *             src: undefined|'path/to/original/matched/image/from/splash/screens.png',
- *             target: undefined|'path/to/asset/library/Default@scale~idiom~widthheight.png'
+ *             target: undefined|'path/to/asset/library/Default@scale~idiom~widthheight.png',
+ *             appearence: undefined|'dark'|'light'
  *         }, ...
  *     ]
  *
@@ -626,39 +666,46 @@ function mapLaunchStoryboardContents (splashScreens, launchStoryboardImagesDir) 
         iphone: ['1x', '2x', '3x']
     };
     const sizes = ['com', 'any'];
+    const appearences = ['', 'dark', 'light'];
 
     idioms.forEach(idiom => {
         scalesForIdiom[idiom].forEach(scale => {
             sizes.forEach(width => {
                 sizes.forEach(height => {
-                    const item = { idiom, scale, width, height };
+                    appearences.forEach(appearence => {
+                        const item = { idiom, scale, width, height };
 
-                    /* examples of the search pattern:
-                     *    scale   ~  idiom    ~   width    height
-                     *     @2x    ~ universal ~    any      any
-                     *     @3x    ~  iphone   ~    com      any
-                     *     @2x    ~   ipad    ~    com      any
-                     */
-                    const searchPattern = `@${scale}~${idiom}~${width}${height}`;
+                        if (appearence !== '') {
+                            item.appearence = appearence;
+                        }
 
-                    /* because old node versions don't have Array.find, the below is
-                     * functionally equivalent to this:
-                     *     var launchStoryboardImage = splashScreens.find(function(item) {
-                     *         return item.src.indexOf(searchPattern) >= 0;
-                     *     });
-                     */
-                    const launchStoryboardImage = splashScreens.reduce(
-                        (p, c) => (c.src.indexOf(searchPattern) >= 0) ? c : p,
-                        undefined
-                    );
+                        /* examples of the search pattern:
+                         *    scale   ~  idiom    ~   width    height ~ appearence
+                         *     @2x    ~ universal ~    any      any
+                         *     @3x    ~  iphone   ~    com      any   ~   dark
+                         *     @2x    ~   ipad    ~    com      any   ~   light
+                         */
+                        const searchPattern = '@' + scale + '~' + idiom + '~' + width + height + (appearence ? '~' + appearence : '');
 
-                    if (launchStoryboardImage) {
-                        item.filename = `Default${searchPattern}.png`;
-                        item.src = launchStoryboardImage.src;
-                        item.target = path.join(launchStoryboardImagesDir, item.filename);
-                    }
+                        /* because old node versions don't have Array.find, the below is
+                         * functionally equivalent to this:
+                         *     var launchStoryboardImage = splashScreens.find(function(item) {
+                         *         return (item.src.indexOf(searchPattern) >= 0) ? (appearence !== '' ? true : ((item.src.indexOf(searchPattern + '~light') >= 0 || (item.src.indexOf(searchPattern + '~dark') >= 0)) ? false : true)) : false;
+                         *     });
+                         */
+                        const launchStoryboardImage = splashScreens.reduce(
+                            (p, c) => (c.src.indexOf(searchPattern) >= 0) ? (appearence !== '' ? c : ((c.src.indexOf(searchPattern + '~light') >= 0 || (c.src.indexOf(searchPattern + '~dark') >= 0)) ? p : c)) : p,
+                            undefined
+                        );
 
-                    platformLaunchStoryboardImages.push(item);
+                        if (launchStoryboardImage) {
+                            item.filename = `Default${searchPattern}.png`;
+                            item.src = launchStoryboardImage.src;
+                            item.target = path.join(launchStoryboardImagesDir, item.filename);
+                        }
+
+                        platformLaunchStoryboardImages.push(item);
+                    });
                 });
             });
         });
@@ -704,6 +751,7 @@ function mapLaunchStoryboardResources (splashScreens, launchStoryboardImagesDir)
  *                 scale: '1x|2x|3x',
  *                 width-class: undefined|'compact',
  *                 height-class: undefined|'compact'
+ *                 ...
  *             }, ...
  *         ],
  *         info: {
@@ -743,6 +791,10 @@ function getLaunchStoryboardContentsJSON (splashScreens, launchStoryboardImagesD
             newItem['height-class'] = IMAGESET_COMPACT_SIZE_CLASS;
         }
 
+        if (item.appearence) {
+            newItem.appearances = [{ appearance: 'luminosity', value: item.appearence }];
+        }
+
         // Xcode doesn't want a filename property if there's no image for these traits
         if (item.filename) {
             newItem.filename = item.filename;
@@ -750,103 +802,6 @@ function getLaunchStoryboardContentsJSON (splashScreens, launchStoryboardImagesD
         return newItem;
     });
     return contentsJSON;
-}
-
-/**
- * Determines if the project's build settings may need to be updated for launch storyboard support
- *
- */
-function checkIfBuildSettingsNeedUpdatedForLaunchStoryboard (platformConfig, infoPlist) {
-    const hasLaunchStoryboardImages = platformHasLaunchStoryboardImages(platformConfig);
-    const hasLegacyLaunchImages = platformHasLegacyLaunchImages(platformConfig);
-    const currentLaunchStoryboard = infoPlist[UI_LAUNCH_STORYBOARD_NAME];
-
-    if (hasLaunchStoryboardImages && currentLaunchStoryboard === CDV_LAUNCH_STORYBOARD_NAME && !hasLegacyLaunchImages) {
-        // don't need legacy launch images if we are using our launch storyboard
-        // so we do need to update the project file
-        events.emit('verbose', 'Need to update build settings because project is using our launch storyboard.');
-        return true;
-    } else if (hasLegacyLaunchImages && !currentLaunchStoryboard) {
-        // we do need to ensure legacy launch images are used if there's no launch storyboard present
-        // so we do need to update the project file
-        events.emit('verbose', 'Need to update build settings because project is using legacy launch images and no storyboard.');
-        return true;
-    }
-    events.emit('verbose', 'No need to update build settings for launch storyboard support.');
-    return false;
-}
-
-function updateBuildSettingsForLaunchStoryboard (proj, platformConfig, infoPlist) {
-    const hasLaunchStoryboardImages = platformHasLaunchStoryboardImages(platformConfig);
-    const hasLegacyLaunchImages = platformHasLegacyLaunchImages(platformConfig);
-    const currentLaunchStoryboard = infoPlist[UI_LAUNCH_STORYBOARD_NAME];
-
-    if (hasLaunchStoryboardImages && currentLaunchStoryboard === CDV_LAUNCH_STORYBOARD_NAME && !hasLegacyLaunchImages) {
-        // don't need legacy launch images if we are using our launch storyboard
-        events.emit('verbose', `Removed ${LAUNCHIMAGE_BUILD_SETTING} because project is using our launch storyboard.`);
-        proj.removeBuildProperty(LAUNCHIMAGE_BUILD_SETTING);
-    } else if (hasLegacyLaunchImages && !currentLaunchStoryboard) {
-        // we do need to ensure legacy launch images are used if there's no launch storyboard present
-        events.emit('verbose', `Set ${LAUNCHIMAGE_BUILD_SETTING} to ${LAUNCHIMAGE_BUILD_SETTING_VALUE} because project is using legacy launch images and no storyboard.`);
-        proj.updateBuildProperty(LAUNCHIMAGE_BUILD_SETTING, LAUNCHIMAGE_BUILD_SETTING_VALUE);
-    } else {
-        events.emit('verbose', 'Did not update build settings for launch storyboard support.');
-    }
-}
-
-function splashScreensHaveLaunchStoryboardImages (contentsJSON) {
-    /* do we have any launch images do we have for our launch storyboard?
-     * Again, for old Node versions, the below code is equivalent to this:
-     *     return !!contentsJSON.images.find(function (item) {
-     *        return item.filename !== undefined;
-     *     });
-     */
-    return !!contentsJSON.images.reduce((p, c) => (c.filename !== undefined) ? c : p, undefined);
-}
-
-function platformHasLaunchStoryboardImages (platformConfig) {
-    const splashScreens = platformConfig.getSplashScreens('ios');
-    const contentsJSON = getLaunchStoryboardContentsJSON(splashScreens, ''); // note: we don't need a file path here; we're just counting
-    return splashScreensHaveLaunchStoryboardImages(contentsJSON);
-}
-
-function platformHasLegacyLaunchImages (platformConfig) {
-    const splashScreens = platformConfig.getSplashScreens('ios');
-    return !!splashScreens.reduce((p, c) => (c.width !== undefined || c.height !== undefined) ? c : p, undefined);
-}
-
-/**
- * Updates the project's plist based upon our launch storyboard images. If there are no images, then we should
- * fall back to the regular launch images that might be supplied (that is, our app will be scaled on an iPad Pro),
- * and if there are some images, we need to alter the UILaunchStoryboardName property to point to
- * CDVLaunchScreen.
- *
- * There's some logic here to avoid overwriting changes the user might have made to their plist if they are using
- * their own launch storyboard.
- */
-function updateProjectPlistForLaunchStoryboard (platformConfig, infoPlist) {
-    const currentLaunchStoryboard = infoPlist[UI_LAUNCH_STORYBOARD_NAME];
-    events.emit('verbose', `Current launch storyboard ${currentLaunchStoryboard}`);
-
-    const hasLaunchStoryboardImages = platformHasLaunchStoryboardImages(platformConfig);
-
-    if (hasLaunchStoryboardImages && !currentLaunchStoryboard) {
-        // only change the launch storyboard if we have images to use AND the current value is blank
-        // if it's not blank, we've either done this before, or the user has their own launch storyboard
-        events.emit('verbose', 'Changing info plist to use our launch storyboard');
-        infoPlist[UI_LAUNCH_STORYBOARD_NAME] = CDV_LAUNCH_STORYBOARD_NAME;
-        return;
-    }
-
-    if (!hasLaunchStoryboardImages && currentLaunchStoryboard === CDV_LAUNCH_STORYBOARD_NAME) {
-        // only revert to using the launch images if we have don't have any images for the launch storyboard
-        // but only clear it if current launch storyboard is our storyboard; the user might be using their
-        // own storyboard instead.
-        events.emit('verbose', 'Changing info plist to use legacy launch images');
-        delete infoPlist[UI_LAUNCH_STORYBOARD_NAME];
-        return;
-    }
-    events.emit('verbose', 'Not changing launch storyboard setting in info plist.');
 }
 
 /**
@@ -970,12 +925,14 @@ function getOrientationValue (platformConfig) {
             NSExceptionMinimumTLSVersion, // String
             NSExceptionRequiresForwardSecrecy, // boolean
             NSRequiresCertificateTransparency, // boolean
+
             // the three below _only_ show when the Hostname is '*'
             // if any of the three are set, it disables setting NSAllowsArbitraryLoads
             // (Apple already enforces this in ATS)
             NSAllowsArbitraryLoadsInWebContent, // boolean (default: false)
             NSAllowsLocalNetworking, // boolean (default: false)
             NSAllowsArbitraryLoadsForMedia, // boolean (default:false)
+
         }
 */
 function processAccessAndAllowNavigationEntries (config) {
@@ -1028,6 +985,7 @@ function processAccessAndAllowNavigationEntries (config) {
             NSExceptionMinimumTLSVersion, // String (default: 'TLSv1.2')
             NSExceptionRequiresForwardSecrecy, // boolean (default: true)
             NSRequiresCertificateTransparency, // boolean (default: false)
+
             // the three below _only_ apply when the Hostname is '*'
             // if any of the three are set, it disables setting NSAllowsArbitraryLoads
             // (Apple already enforces this in ATS)
@@ -1035,6 +993,7 @@ function processAccessAndAllowNavigationEntries (config) {
             NSAllowsLocalNetworking, // boolean (default: false)
             NSAllowsArbitraryLoadsForMedia, // boolean (default:false)
         }
+
     null is returned if the URL cannot be parsed, or is to be skipped for ATS.
 */
 function parseWhitelistUrlForATS (url, options) {
@@ -1130,17 +1089,17 @@ function writeATSEntries (config) {
             if (hostname === '*') {
                 // always write this, for iOS 9, since in iOS 10 it will be overriden if
                 // any of the other three keys are written
-                ats['NSAllowsArbitraryLoads'] = true;
+                ats.NSAllowsArbitraryLoads = true;
 
                 // at least one of the overriding keys is present
                 if (entry.NSAllowsArbitraryLoadsInWebContent) {
-                    ats['NSAllowsArbitraryLoadsInWebContent'] = true;
+                    ats.NSAllowsArbitraryLoadsInWebContent = true;
                 }
                 if (entry.NSAllowsArbitraryLoadsForMedia) {
-                    ats['NSAllowsArbitraryLoadsForMedia'] = true;
+                    ats.NSAllowsArbitraryLoadsForMedia = true;
                 }
                 if (entry.NSAllowsLocalNetworking) {
-                    ats['NSAllowsLocalNetworking'] = true;
+                    ats.NSAllowsLocalNetworking = true;
                 }
 
                 continue;
@@ -1154,11 +1113,11 @@ function writeATSEntries (config) {
                 }
             }
 
-            if (!ats['NSExceptionDomains']) {
-                ats['NSExceptionDomains'] = {};
+            if (!ats.NSExceptionDomains) {
+                ats.NSExceptionDomains = {};
             }
 
-            ats['NSExceptionDomains'][hostname] = exceptionDomain;
+            ats.NSExceptionDomains[hostname] = exceptionDomain;
         }
     }
 

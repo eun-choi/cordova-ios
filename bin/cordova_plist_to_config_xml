@@ -19,6 +19,7 @@
 #
 """
 Converts a project's Cordova.plist file into a config.xml one. This conversion is required for Cordova 2.3.
+
 Usage:
   plist2xml.py path/to/project
 """

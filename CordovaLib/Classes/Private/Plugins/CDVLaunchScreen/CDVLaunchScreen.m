@@ -17,11 +17,23 @@
  under the License.
  */
 
-#import <Foundation/Foundation.h>
+#import "CDVLaunchScreen.h"
+#import <Cordova/CDVViewController.h>
 
-@interface CDVUserAgentUtil : NSObject
-+ (NSString*)originalUserAgent;
-+ (void)acquireLock:(void (^)(NSInteger lockToken))block;
-+ (void)releaseLock:(NSInteger*)lockToken;
-+ (void)setUserAgent:(NSString*)value lockToken:(NSInteger)lockToken;
+@implementation CDVLaunchScreen
+
+- (void)show:(CDVInvokedUrlCommand*)command
+{
+    if ([self.viewController isKindOfClass:[CDVViewController class]]) {
+        [(CDVViewController*)self.viewController showLaunchScreen:YES];
+    }
+}
+
+- (void)hide:(CDVInvokedUrlCommand*)command
+{
+    if ([self.viewController isKindOfClass:[CDVViewController class]]) {
+        [(CDVViewController*)self.viewController showLaunchScreen:NO];
+    }
+}
+
 @end

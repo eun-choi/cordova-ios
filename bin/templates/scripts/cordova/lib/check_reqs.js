@@ -6,7 +6,9 @@
        to you under the Apache License, Version 2.0 (the
        "License"); you may not use this file except in compliance
        with the License.  You may obtain a copy of the License at
+
          http://www.apache.org/licenses/LICENSE-2.0
+
        Unless required by applicable law or agreed to in writing,
        software distributed under the License is distributed on an
        "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -17,9 +19,9 @@
 
 'use strict';
 
-const Q = require('q');
-const shell = require('shelljs');
+const which = require('which');
 const versions = require('./versions');
+const { CordovaError } = require('cordova-common');
 
 const SUPPORTED_OS_PLATFORMS = ['darwin'];
 
@@ -53,8 +55,8 @@ module.exports.check_ios_deploy = () => {
 module.exports.check_os = () => {
     // Build iOS apps available for OSX platform only, so we reject on others platforms
     return os_platform_is_supported()
-        ? Q.resolve(process.platform)
-        : Q.reject('Cordova tooling for iOS requires Apple macOS');
+        ? Promise.resolve(process.platform)
+        : Promise.reject(new CordovaError('Cordova tooling for iOS requires Apple macOS'));
 };
 
 function os_platform_is_supported () {
@@ -81,17 +83,17 @@ function checkTool (tool, minVersion, message, toolFriendlyName) {
     toolFriendlyName = toolFriendlyName || tool;
 
     // Check whether tool command is available at all
-    const tool_command = shell.which(tool);
+    const tool_command = which.sync(tool, { nothrow: true });
     if (!tool_command) {
-        return Q.reject(`${toolFriendlyName} was not found. ${message || ''}`);
+        return Promise.reject(new CordovaError(`${toolFriendlyName} was not found. ${message || ''}`));
     }
 
     // check if tool version is greater than specified one
     return versions.get_tool_version(tool).then(version => {
         version = version.trim();
         return versions.compareVersions(version, minVersion) >= 0
-            ? Q.resolve({ version })
-            : Q.reject(`Cordova needs ${toolFriendlyName} version ${minVersion} or greater, you have version ${version}. ${message || ''}`);
+            ? Promise.resolve({ version })
+            : Promise.reject(new CordovaError(`Cordova needs ${toolFriendlyName} version ${minVersion} or greater, you have version ${version}. ${message || ''}`));
     });
 }
 
@@ -139,7 +141,7 @@ module.exports.check_all = () => {
         return promise.then(() => {
             // If fatal requirement is failed,
             // we don't need to check others
-            if (fatalIsHit) return Q();
+            if (fatalIsHit) return Promise.resolve();
 
             const requirement = requirements[idx];
             return checkFn()
@@ -153,7 +155,7 @@ module.exports.check_all = () => {
                     result.push(requirement);
                 });
         });
-    }, Q())
+    }, Promise.resolve())
         // When chain is completed, return requirements array to upstream API
         .then(() => result);
 };

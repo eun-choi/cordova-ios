@@ -17,15 +17,15 @@
        under the License.
 */
 
-const Q = require('q');
 const path = require('path');
 const build = require('./build');
-const shell = require('shelljs');
-const superspawn = require('cordova-common').superspawn;
+const {
+    CordovaError,
+    events,
+    superspawn: { spawn }
+} = require('cordova-common');
 const check_reqs = require('./check_reqs');
 const fs = require('fs-extra');
-
-const events = require('cordova-common').events;
 
 const cordovaPath = path.join(__dirname, '..');
 const projectPath = path.join(__dirname, '..', '..');
@@ -33,7 +33,7 @@ const projectPath = path.join(__dirname, '..', '..');
 module.exports.run = runOptions => {
     // Validate args
     if (runOptions.device && runOptions.emulator) {
-        return Q.reject('Only one of "device"/"emulator" options should be specified');
+        return Promise.reject(new CordovaError('Only one of "device"/"emulator" options should be specified'));
     }
 
     // support for CB-8168 `cordova/run --list`
@@ -59,7 +59,7 @@ module.exports.run = runOptions => {
             if (!runOptions.nobuild) {
                 return build.run(runOptions);
             } else {
-                return Q.resolve();
+                return Promise.resolve();
             }
         }).then(() => build.findXCodeProjectIn(projectPath))
         .then(projectName => {
@@ -75,7 +75,7 @@ module.exports.run = runOptions => {
                         const ipafile = path.join(buildOutputDir, `${projectName}.ipa`);
 
                         // unpack the existing platform/ios/build/device/appname.ipa (zipfile), will create a Payload folder
-                        return superspawn.spawn('unzip', ['-o', '-qq', ipafile], { cwd: buildOutputDir, printCommand: true, stdio: 'inherit' });
+                        return spawn('unzip', ['-o', '-qq', ipafile], { cwd: buildOutputDir, printCommand: true, stdio: 'inherit' });
                     })
                     .then(() => {
                         // Uncompress IPA (zip file)
@@ -86,9 +86,9 @@ module.exports.run = runOptions => {
                         // delete the existing platform/ios/build/device/appname.app
                         fs.removeSync(appFile);
                         // move the platform/ios/build/device/Payload/appname.app to parent
-                        shell.mv('-f', appFileInflated, buildOutputDir);
+                        fs.moveSync(appFileInflated, appFile);
                         // delete the platform/ios/build/device/Payload folder
-                        shell.rm('-rf', payloadFolder);
+                        fs.removeSync(payloadFolder);
 
                         return null;
                     })
@@ -145,7 +145,7 @@ function filterSupportedArgs (args) {
  * @return {Promise} Fullfilled when any device is connected, rejected otherwise
  */
 function checkDeviceConnected () {
-    return superspawn.spawn('ios-deploy', ['-c', '-t', '1'], { printCommand: true, stdio: 'inherit' });
+    return spawn('ios-deploy', ['-c', '-t', '1'], { printCommand: true, stdio: 'inherit' });
 }
 
 /**
@@ -158,9 +158,9 @@ function deployToDevice (appPath, target, extraArgs) {
     events.emit('log', 'Deploying to device');
     // Deploying to device...
     if (target) {
-        return superspawn.spawn('ios-deploy', ['--justlaunch', '-d', '-b', appPath, '-i', target].concat(extraArgs), { printCommand: true, stdio: 'inherit' });
+        return spawn('ios-deploy', ['--justlaunch', '-d', '-b', appPath, '-i', target].concat(extraArgs), { printCommand: true, stdio: 'inherit' });
     } else {
-        return superspawn.spawn('ios-deploy', ['--justlaunch', '--no-wifi', '-d', '-b', appPath].concat(extraArgs), { printCommand: true, stdio: 'inherit' });
+        return spawn('ios-deploy', ['--justlaunch', '--no-wifi', '-d', '-b', appPath].concat(extraArgs), { printCommand: true, stdio: 'inherit' });
     }
 }
 
@@ -199,18 +199,18 @@ function startSim (appPath, target) {
 }
 
 function iossimLaunch (appPath, devicetypeid, log, exit) {
-    const f = path.resolve(path.dirname(require.resolve('ios-sim')), 'bin', 'ios-sim');
-    const params = ['launch', appPath, '--devicetypeid', devicetypeid, '--log', log, exit];
-
-    return superspawn.spawn(f, params, { cwd: projectPath, printCommand: true })
-        .progress(stdio => {
-            if (stdio.stderr) {
-                events.emit('error', `[ios-sim] ${stdio.stderr}`);
-            }
-            if (stdio.stdout) {
-                events.emit('log', `[ios-sim] ${stdio.stdout.trim()}`);
-            }
-        })
+    return spawn(
+        require.resolve('ios-sim/bin/ios-sim'),
+        ['launch', appPath, '--devicetypeid', devicetypeid, '--log', log, exit],
+        { cwd: projectPath, printCommand: true }
+    ).progress(stdio => {
+        if (stdio.stderr) {
+            events.emit('error', `[ios-sim] ${stdio.stderr}`);
+        }
+        if (stdio.stdout) {
+            events.emit('log', `[ios-sim] ${stdio.stdout.trim()}`);
+        }
+    })
         .then(result => {
             events.emit('log', 'Simulator successfully started via `ios-sim`.');
         });
