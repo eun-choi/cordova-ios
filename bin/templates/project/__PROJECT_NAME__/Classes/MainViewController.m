@@ -75,6 +75,14 @@
 {
     [super viewDidLoad];
     [self.launchView setAlpha:1];
+    if (@available(iOS 15, *)){
+        UINavigationBarAppearance *appearance = [[UINavigationBarAppearance alloc] init];
+        [appearance configureWithOpaqueBackground];
+        appearance.titleTextAttributes = @{NSForegroundColorAttributeName : UIColor.whiteColor};
+        appearance.backgroundColor = [UIColor colorWithRed:200.0/255.0 green:200.0/255.0 blue:200.0/255.0 alpha:1.0];
+        [UINavigationBar appearance].standardAppearance = appearance;
+        [UINavigationBar appearance].scrollEdgeAppearance = appearance;
+    }
 }
 
 @end
