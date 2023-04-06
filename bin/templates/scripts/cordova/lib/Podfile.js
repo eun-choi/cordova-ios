@@ -40,7 +40,7 @@ function Podfile (podFilePath, projectName, minDeploymentTarget) {
 
     this.path = podFilePath;
     this.projectName = projectName;
-    this.minDeploymentTarget = minDeploymentTarget || '12.0';
+    this.minDeploymentTarget = minDeploymentTarget || '12.5';
     this.contents = null;
     this.sources = null;
     this.declarations = null;
