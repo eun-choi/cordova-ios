@@ -2,6 +2,7 @@
   "name": "cordova-ios",
   "version": "6.3.0",
   "description": "cordova-ios release",
+  "types": "./types/index.d.ts",
   "main": "bin/templates/scripts/cordova/Api.js",
   "repository": "github:apache/cordova-ios",
   "bugs": "https://github.com/apache/cordova-ios/issues",
