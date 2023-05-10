@@ -12,8 +12,8 @@
     <platform name="ios">
         <preference name="orientation" value="all" />
         <preference name="target-device" value="handset" />
-        <preference name="deployment-target" value="12.4" />
-        <preference name="SwiftVersion" value="4.1" />
+        <preference name="deployment-target" value="13.0" />
+        <preference name="SwiftVersion" value="5.0" />
     </platform>
 
     <access origin="http://*.apache.org" />
