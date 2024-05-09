@@ -1,5 +1,3 @@
-// swift-tools-version:5.5
-
 /*
  Licensed to the Apache Software Foundation (ASF) under one
  or more contributor license agreements.  See the NOTICE file
@@ -19,29 +17,12 @@
  under the License.
  */
 
-import PackageDescription
+#import <Foundation/Foundation.h>
 
-let package = Package(
-    name: "Cordova",
-    platforms: [
-        .iOS(.v11),
-        .macCatalyst(.v13)
-    ],
-    products: [
-        .library(name: "CordovaLib", targets: ["Cordova"])
-    ],
-    dependencies: [],
-    targets: [
-        .target(
-            name: "Cordova",
-            path: "CordovaLib/",
-            exclude: ["Info.plist"],
-            resources: [
-                .copy("PrivacyInfo.xcprivacy")
-            ],
-            cSettings: [
-                .headerSearchPath("Classes/Private")
-            ]
-        )
-    ]
-)
+//! Project version number for Cordova.
+FOUNDATION_EXPORT double CordovaVersionNumber;
+
+//! Project version string for Cordova.
+FOUNDATION_EXPORT const unsigned char CordovaVersionString[];
+
+#import <Cordova/CDV.h>
