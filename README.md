@@ -32,8 +32,8 @@ Cordova iOS is an iOS application library that allows for Cordova-based projects
 
 ## Requirements
 
-* Xcode 11.x or greater. Download it at the [Apple Developer - Downloads](https://developer.apple.com/downloads) or the [Mac App Store](https://apps.apple.com/us/app/xcode/id497799835?mt=12).
-* [Node.js](https://nodejs.org)
+* Xcode 15.x or greater. Download it at the [Apple Developer - Downloads](https://developer.apple.com/downloads) or the [Mac App Store](https://apps.apple.com/us/app/xcode/id497799835?mt=12).
+* [Node.js](https://nodejs.org) 20.5.0 or greater
 
 ## Create a Cordova project
 
@@ -56,7 +56,7 @@ cordova platform add ios
 
 ## Debugging in Xcode
 
-Import project in Xcode through _File > Open_ and targeting `/path/to/your-cdv-project/platforms/ios/PROJECT_NAME.xcworkspace`.
+Import project in Xcode through _File > Open_ and targeting `/path/to/your-cdv-project/platforms/ios/App.xcworkspace`.
 
 ## How to Test Repo Development
 
@@ -65,6 +65,22 @@ npm install
 npm test
 ```
 
+## Install Nightly Build
+
+```bash
+cordova platform add ios@nightly
+```
+
+### Notes
+
+Nightly builds are **not recommended for production apps**. They are intended for testing purposes. This allows users either to check if recent changes in the main branch have fixed existing issues or to identify new bugs before an official release.
+
+Nightly builds are generated daily and may be **unstable**.
+
+
+See [Apache Cordova - Nightly Builds](https://cordova.apache.org/contribute/nightly_builds.html) for more details.
+
 ## Further reading
 
 * [Apache Cordova](https://cordova.apache.org/)
+* [Cordova iOS API Documentation](https://apache.github.io/cordova-ios/)

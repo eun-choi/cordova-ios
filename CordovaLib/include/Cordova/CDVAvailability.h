@@ -83,6 +83,7 @@
 #define __CORDOVA_7_0_1 70001
 #define __CORDOVA_7_1_0 70100
 #define __CORDOVA_7_1_1 70101
+#define __CORDOVA_8_0_0 80000
 /* coho:next-version,insert-before */
 #define __CORDOVA_NA 99999      /* not available */
 
@@ -95,10 +96,11 @@
  */
 #ifndef CORDOVA_VERSION_MIN_REQUIRED
     /* coho:next-version-min-required,replace-after */
-    #define CORDOVA_VERSION_MIN_REQUIRED __CORDOVA_7_1_1
+    #define CORDOVA_VERSION_MIN_REQUIRED __CORDOVA_8_0_0
 #endif
 
-/*
+// TODO: Remove in Cordova iOS 9
+/**
  Returns YES if it is at least version specified as NSString(X)
  Usage:
      if (IsAtLeastiOSVersion(@"5.1")) {
@@ -106,8 +108,9 @@
      }
  */
 #define IsAtLeastiOSVersion(X) ([[[UIDevice currentDevice] systemVersion] compare:X options:NSNumericSearch] != NSOrderedAscending)
+#pragma clang deprecated(IsAtLeastiOSVersion, "Use the built-in #available syntax")
 
-/* Return the string version of the decimal version */
+/** Return the string version of the decimal version */
 #define CDV_VERSION [NSString stringWithFormat:@"%d.%d.%d", \
     (CORDOVA_VERSION_MIN_REQUIRED / 10000),                 \
     (CORDOVA_VERSION_MIN_REQUIRED % 10000) / 100,           \

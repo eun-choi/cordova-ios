@@ -17,16 +17,22 @@
  under the License.
  */
 
+const EventEmitter = require('node:events');
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
+const tmp = require('tmp');
 const xcode = require('xcode');
+const { ConfigParser } = require('cordova-common');
 const create = require('../../lib/create');
 
-const makeTempDir = () => path.join(
-    fs.realpathSync(os.tmpdir()),
-    `cordova-ios-create-test-${Date.now()}`
-);
+tmp.setGracefulCleanup();
+
+function makeTempDir () {
+    const tempdir = tmp.dirSync({ unsafeCleanup: true });
+    return path.join(tempdir.name, `cordova-ios-create-test-${Date.now()}`);
+}
+
+const templateConfigXmlPath = path.join(__dirname, '..', '..', 'templates', 'project', 'App', 'config.xml');
 
 /**
  * Verifies that some of the project file exists. Not all will be tested.
@@ -36,10 +42,9 @@ const makeTempDir = () => path.join(
  * @param {String} projectName
  */
 function verifyProjectFiles (tmpDir, projectName) {
-    expect(fs.existsSync(path.join(tmpDir, projectName))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, `${projectName}.xcodeproj`))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, `${projectName}.xcworkspace`))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, 'CordovaLib'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, 'App'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, 'App.xcodeproj'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, 'App.xcworkspace'))).toBe(true);
 }
 
 /**
@@ -50,11 +55,15 @@ function verifyProjectFiles (tmpDir, projectName) {
  * @param {String} expectedBundleIdentifier
  */
 function verifyProjectBundleIdentifier (tmpDir, projectName, expectedBundleIdentifier) {
-    const pbxproj = path.join(tmpDir, `${projectName}.xcodeproj`, 'project.pbxproj');
+    const pbxproj = path.join(tmpDir, 'App.xcodeproj', 'project.pbxproj');
     const xcodeproj = xcode.project(pbxproj);
     xcodeproj.parseSync();
-    const actualBundleIdentifier = xcodeproj.getBuildProperty('PRODUCT_BUNDLE_IDENTIFIER');
+
+    const actualBundleIdentifier = xcodeproj.getBuildProperty('PRODUCT_BUNDLE_IDENTIFIER', undefined, 'App');
     expect(actualBundleIdentifier).toBe(`"${expectedBundleIdentifier}"`);
+
+    const actualBundleName = xcodeproj.getBuildProperty('PRODUCT_NAME', undefined, 'App');
+    expect(actualBundleName).toBe(`"${projectName}"`);
 }
 
 /**
@@ -72,9 +81,11 @@ function verifyBuild (tmpDir) {
         'junction'
     );
 
+    const events = new EventEmitter();
     const Api = require(path.join(tmpDir, 'cordova', 'Api.js'));
+    const target = process.env.CDV_IOS_SIM?.replace(/\s/g, '-') ?? 'iPhone-16e';
 
-    return expectAsync(new Api('ios', tmpDir).build({ emulator: true }))
+    return expectAsync(new Api('ios', tmpDir, events).build({ emulator: true, buildFlag: ['-quiet'], target }))
         .toBeResolved();
 }
 
@@ -87,32 +98,36 @@ function verifyBuild (tmpDir) {
  * @returns {Promise}
  */
 async function verifyCreateAndBuild (tmpDir, packageName, projectName) {
-    await create.createProject(tmpDir, packageName, projectName, {}, undefined)
+    const configXml = new ConfigParser(templateConfigXmlPath);
+
+    await create.createProject(tmpDir, packageName, projectName, {}, configXml)
         .then(() => verifyProjectFiles(tmpDir, projectName))
         .then(() => verifyProjectBundleIdentifier(tmpDir, projectName, packageName))
         .then(() => verifyBuild(tmpDir));
 }
 
-describe('create', () => {
-    let tmpDir;
+if (process.platform === 'darwin') {
+    describe('create', () => {
+        let tmpDir;
 
-    beforeEach(function () {
-        tmpDir = makeTempDir();
+        beforeEach(function () {
+            tmpDir = makeTempDir();
+        });
+
+        afterEach(() => {
+            fs.rmSync(tmpDir, { recursive: true, force: true });
+        });
+
+        it('Test#001 : create project with ascii name, no spaces', () => {
+            const packageName = 'com.test.app1';
+            const projectName = 'testcreate';
+            return verifyCreateAndBuild(tmpDir, packageName, projectName);
+        }, 10 * 60 * 1000); // first build takes longer (probably cold caches)
+
+        it('Test#002 : create project with complicated name', () => {
+            const packageName = 'com.test.app2';
+            const projectName = '応応応応 hello & إثرا 用用用用';
+            return verifyCreateAndBuild(tmpDir, packageName, projectName);
+        }, 5 * 60 * 1000);
     });
-
-    afterEach(() => {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-    });
-
-    it('Test#001 : create project with ascii name, no spaces', () => {
-        const packageName = 'com.test.app1';
-        const projectName = 'testcreate';
-        return verifyCreateAndBuild(tmpDir, packageName, projectName);
-    }, 10 * 60 * 1000); // first build takes longer (probably cold caches)
-
-    it('Test#002 : create project with complicated name', () => {
-        const packageName = 'com.test.app2';
-        const projectName = '応応応応 hello & إثرا 用用用用';
-        return verifyCreateAndBuild(tmpDir, packageName, projectName);
-    }, 5 * 60 * 1000);
-});
+}

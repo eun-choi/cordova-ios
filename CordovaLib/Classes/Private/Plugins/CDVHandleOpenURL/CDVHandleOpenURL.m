@@ -18,7 +18,6 @@
  */
 
 #import "CDVHandleOpenURL.h"
-#import <Cordova/CDV.h>
 
 @implementation CDVHandleOpenURL
 
@@ -65,7 +64,7 @@
     };
 
     if (!pageLoaded) {
-        NSString* jsString = @"document.readystate";
+        NSString* jsString = @"document.readyState";
         [self.webViewEngine evaluateJavaScript:jsString
                              completionHandler:^(id object, NSError* error) {
             if ((error == nil) && [object isKindOfClass:[NSString class]]) {
